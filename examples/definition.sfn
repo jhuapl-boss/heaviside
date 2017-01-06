@@ -1,0 +1,95 @@
+"""State machine comment"""
+
+version: "1.0"
+timeout: 60
+
+# ====== #
+# States #
+# ====== #
+
+
+Success() # Terminal state that ends execution sucessfully
+Fail("Error", "Cause") # Terminal state that ends execution with an error
+
+Pass() # Do nothing state. Can be used to modify / inject data
+    """Function Name
+    Comments go here"""
+    input: '$.input'
+    result: '$.results'
+    output: '$.output'
+    data: # only for Pass states
+        { 'a': 'a', 'b': true, 'c': False, 'd': null }
+
+Lambda('FUNCTION_NAME')
+    """Step 2
+    FUNCTION_NAME is used to create actual ARN
+    input / results / output / data are all valid"""
+    timeout: 60 # Lambda / Activity only
+    heartbeat: 30 # Lambda / Activity only, must be less than timeout
+    retry ["Error(s)"] 0 0 0.0 # retry interval (seconds), max attempts, backoff rate
+    retry [] 0 0 0.0 # Empty error to match all errors (Same as State.ALL)
+    catch ["Error(s)"]:
+        Pass()
+    catch []: # Same as above
+        Pass()
+
+# Activity / Lambda ARNs can be just the function name, the whole, or
+#                        a partial end of the ARN (and the rest will be added)
+Activity('us-east-1:123456:activity:FUNCTION_NAME')
+    # Activities are non-lambda functions that can run on EC2, ECS or anywhere else
+    # The code just polls AWS to see if there is work available
+
+# Four different versions of a sleep function
+# input / output are valid
+Wait(seconds=30)
+#Wait(timestamp='yyyy-mm-ddThh:mm:ssZ') # RFC3339 formatted
+Wait(timestamp='1111-11-11T11:11:11Z')
+Wait(seconds_path='$.seconds')
+Wait(timestamp_path='$.timestamp')
+
+
+# ============ #
+# Flow Control #
+# ============ #
+
+# Comparison operators
+# ==, != for boolean
+# ==, !=, <, >, <=, >= for int/float/string/timestamp
+# Note: A timestamp is determined by trying to parse the string into the correct formatted
+# not, and, or are also supported with the written precedence
+# () are supported
+
+# if / elif / else becomes a Choice State
+if '$.a' == '1111-11-11T11:11:11Z' or \
+   '$.a' == 1:
+    Pass()
+elif '$.b' != "foo":
+    Pass()
+elif '$.c' < 2:
+    Pass()
+else:
+    Pass()
+transform:
+    output: '$.foo'
+
+# while loop becomes a Choice State
+while '$' == 1:
+    Pass()
+transform:
+    input: '$.foo'
+
+# parallel executes multiple branches in parallel
+# the errors block applies to the whole parallel
+# state (all of the branches together)
+parallel:
+    """Parallel Name
+    Only comments / step name from the first parallel block is used"""
+    Pass()
+parallel:
+    Pass()
+transform:
+    input: '$.foo'
+error:
+    retry [] 0 0 0.0
+    catch []:
+        Pass()

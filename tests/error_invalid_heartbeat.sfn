@@ -1,0 +1,3 @@
+Lambda('arn:aws:lambda:region:account:function:FUNCTION_NAME')
+    timeout: 60
+    heartbeat: 60

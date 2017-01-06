@@ -1,0 +1,3 @@
+funcparserlib
+iso8601
+boto3>=1.4.3
