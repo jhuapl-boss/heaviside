@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import types
 import time
 import random
 import json
@@ -145,9 +146,10 @@ class Activity(object):
         resp = self.client.send_task_heartbeat(taskToken = self.token)
 
 class TaskProcess(Process):
-    def __init__(self, worker, token, target=None, **kwargs):
+    def __init__(self, worker, token, input_, target=None, **kwargs):
         super().__init__(name=worker)
         self.token = token # DP ???: move to run method?
+        self.input_ = input_
         self.target = target
         self.session, self.account_id = create_session(**kwargs)
         self.client = self.session.client('stepfunctions')
@@ -158,9 +160,18 @@ class TaskProcess(Process):
         else:
             raise Exception("No target to handle processing")
 
-    def run(self, input_):
+    def run(self):
         try:
-            output_ = self.process(input_)
+            output_ = self.process(self.input_)
+            # DP TODO: Add corouting support
+            if isinstance(output, types.GeneratorType):
+                try:
+                    it = output_
+                    while True:
+                        next(it)
+                        self.heartbeat()
+                except StopIteration as e:
+                    output_ = e.value
             self.success(output_)
         except ActivityError as e:
             self.failure(e.error, e.msg)
@@ -200,22 +211,6 @@ class TaskProcess(Process):
                                              cause = cause)
         self.token = None # finished with task
 
-class HeartbeatTaskProcess(TaskProcess):
-    def run(self, input_):
-        try:
-            it = self.process(input_)
-            try:
-                while True:
-                    next(it)
-                    self.heartbeat()
-            except StopIteration as e:
-                output_ = e.value
-                self.success(output_)
-        except ActivityError as e:
-            self.failure(e.error, e.msg)
-        except Exception as e:
-            self.failure('Unhandled', str(e))
-
     def heartbeat(self):
         """Sends a heartbeat for states that require heartbeats of long running Activities"""
         if self.token is None:
@@ -227,6 +222,7 @@ class ActivityProcess(Process):
     def __init__(self, name, task_proc, **kwargs):
         super().__init__(name=name)
         self.name = name
+        self.credentials = kwargs
         self.session, self.account_id = create_session(**kwargs)
         self.client = self.session.client('stepfunctions')
 
@@ -251,19 +247,13 @@ class ActivityProcess(Process):
 
             worker = get_worker()
             try:
-                token, input_ = self.activity.task(worker)
+                token, input_ = self.task(worker)
                 if token is not None:
-                    proc = self.task_proc()
+                    proc = self.task_proc(worker, token, input_, **self.credentials))
                     proc.start()
+                    # DP TODO: figure out how to limit the total number of currently running task processes
 
                     worker = get_worker()
-                    try:
-                        output_ = self.handle(input_)
-                        self.activity.success(output_)
-                    except ActivityError as e:
-                        self.activity.failure(e.error, e.msg)
-                    except Exception as e:
-                        self.activity.failure('Unhandled', str(e))
             except Exception as e:
                 pass # DP TODO: figure out logging to syslog
 
@@ -316,83 +306,30 @@ class ActivityProcess(Process):
         else:
             return resp['taskToken'], json.loads(resp['input'])
 
-class HeartbeatActivityProcess(ActivityProcess):
-    def handle(self, input_):
-        it = self.handler(input_)
-        try:
-            while True:
-                next(it)
-                self.activity.heartbeat()
-        except StopIteration as e:
-            output_ = e.value
-            return output_
-
-def heatbeat_handler(input_):
-    for key in input_:
-        yield # send heartbeat
-        # process input_[key] item
-    return {}
-
 class ActivityManager(object):
     def __init__(self):
         self.is_running = False
 
     def build(self):
-        """
-        {
-            (cls, args [,kwargs]): [cls instances]
-        }
-        """
-        return {}
+        """[() -> Process]"""
+        return []
 
     def run(self):
         activities = self.build()
         if len(activities) == 0:
             raise Exception("No activities to manage")
 
-        for key in activities:
-            for activity in activities[key]:
-                activity.start()
-
-        def rebuild(cls, args, kwargs=None):
-            if kwargs is not None:
-                return cls(*args, **kwargs)
-            else:
-                return cls(*args)
-
         self.is_running = True
+
+        procs = {}
+        for a in activities:
+            procs[a] = a()
+            procs[a].start()
+
         while self.is_running:
             time.sleep(60)
-            for key in activities:
-                alive, dead = [], []
-                for activity in activities[key]:
-                    (alive if activity.is_alive() else dead).append(activity)
-                for activity in dead:
-                    alive.append(rebuild(*key))
-                activities[key] = alive
+            for key in procs:
+                if not procs[key].is_alive():
+                    procs[key] = key()
+                    procs[key].start()
 
-def activity_handler(function):
-    def wrapper(client, token, input_):
-        try:
-            output_ = function(input_)
-            client.activity_success(token, output_)
-        except ActivityError as e:
-            client.activity_failure(token, e.error, e.msg)
-        except Exception as e:
-            client.activity_failure(token, 'Unhandled', str(e))
-
-def heartbeat_handler(generator):
-    def wrapper(client, token, input_):
-        try:
-            it = generator(input_)
-            try:
-                while True:
-                    next(it)
-                    client.activity_heartbeat(token)
-            except StopIteration as e:
-                output_ = e.value
-                client.activity_success(token, output_)
-        except ActivityError as e:
-            client.activity_failure(token, e.error, e.msg)
-        except Exception as e:
-            client.activity_failure(token, 'Unhandled', str(e))
