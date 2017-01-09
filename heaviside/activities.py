@@ -350,14 +350,19 @@ class ActivityManager(object):
         self.is_running = True
 
         procs = {}
-        for a in activities:
-            procs[a] = a()
-            procs[a].start()
+        try:
+            for a in activities:
+                procs[a] = a()
+                procs[a].start()
 
-        while self.is_running:
-            time.sleep(60)
+            while self.is_running:
+                for key in procs:
+                    if not procs[key].is_alive():
+                        procs[key] = key()
+                        procs[key].start()
+                time.sleep(60)
+        except KeyboardInterrupt:
             for key in procs:
-                if not procs[key].is_alive():
-                    procs[key] = key()
-                    procs[key].start()
+                if procs[key].is_alive():
+                    procs[key].terminate()
 
