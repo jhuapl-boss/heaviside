@@ -16,6 +16,7 @@ import sys
 import time
 import json
 from datetime import datetime
+from collections import Mapping
 
 from botocore.exceptions import ClientError
 
@@ -169,7 +170,7 @@ class StateMachine(object):
         if self.arn is None:
             raise Exception("State Machine {} doesn't exist yet".format(self.name))
 
-        if isinstance(input_, Mapping):
+        if isinstance(input_, Mapping) or isinstance(input_, list):
             input_ = json.dumps(input_)
         elif not isinstance(input_, str):
             raise Exception("Unknown input format")

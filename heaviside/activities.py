@@ -16,6 +16,7 @@ import types
 import time
 import random
 import json
+from collections import Mapping
 from string import ascii_uppercase as CHARS
 from multiprocessing import Process
 
@@ -114,7 +115,7 @@ class Activity(object):
         if self.token is None:
             raise Exception("Not currently working on a task")
 
-        if isinstance(output, Mapping):
+        if isinstance(output, Mapping) or isinstance(output, list):
             output = json.dumps(output)
         elif not isinstance(output, str):
             raise Exception("Unknown output format")
@@ -148,7 +149,8 @@ class Activity(object):
 class TaskProcess(Process):
     def __init__(self, worker, token, input_, target=None, **kwargs):
         super().__init__(name=worker)
-        self.token = token # DP ???: move to run method?
+        self.worker = worker
+        self.token = token
         self.input_ = input_
         self.target = target
         self.session, self.account_id = create_session(**kwargs)
@@ -163,8 +165,8 @@ class TaskProcess(Process):
     def run(self):
         try:
             output_ = self.process(self.input_)
-            # DP TODO: Add corouting support
-            if isinstance(output, types.GeneratorType):
+            # DP TODO: Add coroutine support
+            if isinstance(output_, types.GeneratorType):
                 try:
                     it = output_
                     while True:
@@ -176,7 +178,19 @@ class TaskProcess(Process):
         except ActivityError as e:
             self.failure(e.error, e.msg)
         except Exception as e:
+            if self.is_timeout(e): # ClientError
+                return # Eat timeout error from heartbeat
+
             self.failure('Unhandled', str(e))
+
+    def is_timeout(self, ex, op_name=None):
+        try:
+            rst = ex.response['Error']['Code'] == 'TaskTimedOut'
+            if op_name:
+                rst &= ex.operation_name == op_name
+            return rst
+        except:
+            return False
 
     def success(self, output):
         """Marks the task successfully complete and returns the processed data
@@ -187,13 +201,19 @@ class TaskProcess(Process):
         if self.token is None:
             raise Exception("Not currently working on a task")
 
-        if isinstance(output, Mapping):
+        if isinstance(output, Mapping) or isinstance(output, list):
             output = json.dumps(output)
         elif not isinstance(output, str):
             raise Exception("Unknown output format")
 
-        resp = self.client.send_task_success(taskToken = self.token,
-                                             output = output)
+        try:
+            resp = self.client.send_task_success(taskToken = self.token,
+                                                 output = output)
+        except ClientError as e:
+            # eat the timeout
+            if not self.is_timeout(e):
+                raise
+
         self.token = None # finished with task
 
     def failure(self, error, cause):
@@ -206,9 +226,15 @@ class TaskProcess(Process):
         if self.token is None:
             raise Exception("Not currently working on a task")
 
-        resp = self.client.send_task_failure(taskToken = self.token,
-                                             error = error,
-                                             cause = cause)
+        try:
+            resp = self.client.send_task_failure(taskToken = self.token,
+                                                 error = error,
+                                                 cause = cause)
+        except ClientError as e:
+            # eat the timeout
+            if not self.is_timeout(e):
+                raise
+
         self.token = None # finished with task
 
     def heartbeat(self):
@@ -217,6 +243,7 @@ class TaskProcess(Process):
             raise Exception("Not currently working on a task")
 
         resp = self.client.send_task_heartbeat(taskToken = self.token)
+        # heartbeat error handled in the run() method
 
 class ActivityProcess(Process):
     def __init__(self, name, task_proc, **kwargs):
@@ -225,6 +252,7 @@ class ActivityProcess(Process):
         self.credentials = kwargs
         self.session, self.account_id = create_session(**kwargs)
         self.client = self.session.client('stepfunctions')
+        self.arn = None
 
         resp = self.client.list_activities()
         for activity in resp['activities']:
@@ -249,7 +277,7 @@ class ActivityProcess(Process):
             try:
                 token, input_ = self.task(worker)
                 if token is not None:
-                    proc = self.task_proc(worker, token, input_, **self.credentials))
+                    proc = self.task_proc(worker, token, input_, **self.credentials)
                     proc.start()
                     # DP TODO: figure out how to limit the total number of currently running task processes
 
