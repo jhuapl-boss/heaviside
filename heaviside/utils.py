@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import urllib
 import json
 from io import IOBase, StringIO
 from collections import Mapping
@@ -67,6 +68,7 @@ def create_session(**kwargs):
           to figure out this information for itself, from predefined locations.
 
     Args:
+        session (Boto3 Session): Existing session to use. Only account id will be looked for
         credentials (dict|fh|Path|json string): source to load credentials from
                                                 If a dict, used directly
                                                 If a fh, read and parsed as a Json object
@@ -74,58 +76,73 @@ def create_session(**kwargs):
                                                 If a string, parsed as a Json object
 
         Note: The following will override the values in credentials if they exist
-        region / aws_region (string): AWS region to connect to
         secret_key / aws_secret_key (string): AWS Secret Key
         access_key / aws_access_key (string): AWS Access Key
 
         Note: The following will be derived from the AWS Session if not provided
         account_id / aws_account_id (string): AWS Account ID
 
+        Note: The following will be pulled from EC2 Meta-data if not provided
+        region / aws_region (string): AWS region to connect to
+
     Returns:
         (Boto3 Session, account_id) : Boto3 session populated with given credentials and
                                       AWS Account ID (either given or derived from session)
     """
-    if len(kwargs) == 0:
-        session = Session() # Let boto3 try to resolve the keys iteself, potentially from EC2 meta data
-        account_id = None
+    credentials = kwargs.get('credentials', {})
+    if isinstance(credentials, Mapping):
+        pass
+    elif isinstance(credentials, Path):
+        with credentials.open() as fh:
+            credentials = json.load(fh)
+    elif isinstance(credentials, str):
+        credentials = json.loads(credentials)
+    elif isinstance(credentials, IOBase):
+        credentials = json.load(credentials)
     else:
-        credentials = kwargs.get('credentials', {})
-        if isinstance(credentials, Mapping):
-            pass
-        if isinstance(credentials, Path):
-            with credentials.open() as fh:
-                credentials = json.load(fh)
-        elif isinstance(credentials, str):
-            credentials = json.loads(credentials)
-        elif isinstance(credentials, IOBase):
-            credentials = json.load(credentials)
-        else:
-            raise Exception("Unknown credentials type: {}".format(type(credentials).__name__))
+        raise Exception("Unknown credentials type: {}".format(type(credentials).__name__))
 
-        def locate(names, locations):
-            for location in locations:
-                for name in names:
-                    if name in location:
-                        return location[name]
-            names = " or ".join(names)
-            raise Exception("Could not find credentials value for {}".format(names))
+    def locate(names, locations):
+        for location in locations:
+            for name in names:
+                if name in location:
+                    return location[name]
+        names = " or ".join(names)
+        raise Exception("Could not find credentials value for {}".format(names))
 
-        access = locate(('access_key', 'aws_access_key'), (kwargs, credentials))
-        secret = locate(('secret_key', 'aws_secret_key'), (kwargs, credentials))
-        region = locate(('region', 'aws_region'), (kwargs, credentials))
-
-        session = Session(aws_access_key_id = access,
-                          aws_secret_access_key = secret,
-                          region_name = region)
-
+    locate_region = True
+    if 'session' in kwargs:
+        session = kwargs['session']
+        locate_region = False
+    else:
         try:
-            account_id = locate(('account_id', 'aws_account_id'), (kwargs, credentials))
-        except:
-            account_id = None
+            access = locate(('access_key', 'aws_access_key'), (kwargs, credentials))
+            secret = locate(('secret_key', 'aws_secret_key'), (kwargs, credentials))
 
-    if account_id is None:
+            session = Session(aws_access_key_id = access,
+                              aws_secret_access_key = secret)
+        except:
+            session = Session() # Let boto3 try to resolve the keys iteself, potentially from EC2 meta data
+
+    try:
+        account_id = locate(('account_id', 'aws_account_id'), (kwargs, credentials))
+    except:
         # From boss-manage.git/lib/aws.py:get_account_id_from_session()
         account_id = session.client('iam').list_users(MaxItems=1)["Users"][0]["Arn"].split(':')[4]
+
+    if locate_region:
+        try:
+            region = locate(('region', 'aws_region'), (kwargs, credentials))
+        except:
+            try:
+                region = urllib.request.urlopen('http://169.254.169.254/latest/meta-data/placement/availability-zone/')
+                region = region.read().decode('utf-8')[:-1] # remove AZ character from region name
+            except:
+                raise Exception("Could not locate AWS region to connect to")
+
+        # DP HACK: No good way to get the region after the session is created
+        #          Needed here to support loading keys from EC2 meta data
+        session._session.set_config_variable('region', region)
 
     return session, account_id
 
