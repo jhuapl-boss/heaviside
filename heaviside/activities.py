@@ -181,7 +181,8 @@ class TaskProcess(Process):
             if self.is_timeout(e): # ClientError
                 return # Eat timeout error from heartbeat
 
-            self.failure('Unhandled', str(e))
+            error = type(e).__name__
+            self.failure(error, str(e))
 
     def is_timeout(self, ex, op_name=None):
         try:
