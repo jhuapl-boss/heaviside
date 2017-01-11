@@ -16,7 +16,6 @@ import types
 import time
 import random
 import json
-from collections import Mapping
 from string import ascii_uppercase as CHARS
 from multiprocessing import Process
 
@@ -115,10 +114,7 @@ class Activity(object):
         if self.token is None:
             raise Exception("Not currently working on a task")
 
-        if isinstance(output, Mapping) or isinstance(output, list):
-            output = json.dumps(output)
-        elif not isinstance(output, str):
-            raise Exception("Unknown output format")
+        output = json.dumps(output)
 
         resp = self.client.send_task_success(taskToken = self.token,
                                              output = output)
@@ -202,10 +198,7 @@ class TaskProcess(Process):
         if self.token is None:
             raise Exception("Not currently working on a task")
 
-        if isinstance(output, Mapping) or isinstance(output, list):
-            output = json.dumps(output)
-        elif not isinstance(output, str):
-            raise Exception("Unknown output format")
+        output = json.dumps(output)
 
         try:
             resp = self.client.send_task_success(taskToken = self.token,
