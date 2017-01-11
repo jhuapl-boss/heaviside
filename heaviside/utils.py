@@ -44,6 +44,8 @@ def read(obj):
         fh.name = '<string>'
     elif isinstance(obj, IOBase):
         fh = obj
+        if not hasattr(fh, 'name'):
+            fh.name = '<unknown>'
     else:
         raise Exception("Unknown input type {}".format(type(obj).__name__))
     

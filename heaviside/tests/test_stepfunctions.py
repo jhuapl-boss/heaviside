@@ -19,11 +19,11 @@ import unittest
 from unittest import mock
 
 # Allow unit test files to import the target library modules
-cur_dir = os.path.dirname(os.path.realpath(__file__))
-parent_dir = os.path.normpath(os.path.join(cur_dir, '..', '..'))
-sys.path.append(parent_dir)
+#cur_dir = os.path.dirname(os.path.realpath(__file__))
+#parent_dir = os.path.normpath(os.path.join(cur_dir, '..', '..'))
+#sys.path.append(parent_dir)
 
-from lib.stepfunctions import StateMachine, Activity, compile, create_session
+#from lib.stepfunctions import StateMachine, Activity, compile, create_session
 
 """
 create_session
@@ -39,18 +39,7 @@ Activity
         test guard conditions
         test boto3 call
 """
-
-class MockSession(object):
-    def __init__(self):
-        super().__init__()
-
-        self.clients = {}
-
-    def client(self, name):
-        if name not in self.clients:
-            self.clients[name] = mock.MagicMock()
-        return self.clients[name]
-
+"""
 class TestActivity(unittest.TestCase):
     @mock.patch('lib.stepfunctions.create_session', autospec=True)
     @mock.patch('lib.stepfunctions.random.sample', autospec=True)
@@ -259,4 +248,4 @@ class TestActivity(unittest.TestCase):
             mock.call.get_activity_task(activityArn = 'XXX', workerName = 'name')
         ]
         self.assertEqual(iClient.mock_calls, calls)
-
+"""
