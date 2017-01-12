@@ -59,6 +59,7 @@ def compile(source, region=None, account_id=None, translate=None, file=sys.stder
         print(e.line, file=file)
         print((' ' * e.pos) + '^', file=file)
         print('Syntax Error: {}'.format(str(e)), file=file)
+        return None
     #except Exception as e:
     #    print("Unhandled Error: {}".format(e), file=file)
 
