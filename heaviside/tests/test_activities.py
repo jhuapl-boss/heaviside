@@ -272,6 +272,11 @@ class TestActivityProcess(unittest.TestCase):
 
         self.assertEqual(activity.arn, 'XXX')
 
+        calls = [
+            mock.call.list_activities()
+        ]
+        self.assertEqual(client.mock_calls, calls)
+
     # DP ???: How to test the import
 
     @mock.patch('heaviside.activities.create_session', autospec=True)
