@@ -39,3 +39,5 @@ class ActivityError(Exception):
     def __init__(self, error, cause):
         super().__init__(cause)
         self.error = error
+        self.cause = cause
+

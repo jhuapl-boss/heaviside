@@ -158,6 +158,7 @@ class TaskProcess(Process):
         if self.target:
             return self.target(input_)
         else:
+            # DP ???: Use ActivityError('Unhandled', ...)???
             raise Exception("No target to handle processing")
 
     def run(self):
@@ -174,9 +175,10 @@ class TaskProcess(Process):
                     output_ = e.value
             self.success(output_)
         except ActivityError as e:
-            self.failure(e.error, e.msg)
+            self.failure(e.error, e.cause)
         except Exception as e:
             if self.is_timeout(e): # ClientError
+                self.token = None
                 return # Eat timeout error from heartbeat
 
             error = type(e).__name__
@@ -266,9 +268,11 @@ class ActivityProcess(Process):
     def run(self):
         self.create()
 
-        while True:
-            get_worker = lambda: (self.name + '-' + ''.join(random.sample(CHARS,6)))
+        get_worker = lambda: (self.name + '-' + ''.join(random.sample(CHARS,6)))
 
+        # Note: needed for unit test, so the loop will exit
+        self.running = True
+        while self.running:
             worker = get_worker()
             try:
                 token, input_ = self.task(worker)
@@ -303,9 +307,9 @@ class ActivityProcess(Process):
         if self.arn is None:
             if exception:
                 raise Exception("Activity {} doesn't exist".format(self.name))
-
-        resp = self.client.delete_activity(activityArn = self.arn)
-        self.arn = None
+        else:
+            resp = self.client.delete_activity(activityArn = self.arn)
+            self.arn = None
 
     def task(self, worker):
         """Query to see if a task exists for processing.
