@@ -57,7 +57,6 @@ class TestRead(unittest.TestCase):
         with utils.read(obj) as fh:
             self.assertEqual(obj, fh)
             self.assertEqual(data, fh.read())
-            self.assertEqual('<unknown>', fh.name)
 
     def test_unsuported(self):
         with self.assertRaises(Exception):
