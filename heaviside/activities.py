@@ -19,6 +19,8 @@ import json
 from string import ascii_uppercase as CHARS
 from multiprocessing import Process
 
+from botocore.exceptions import ClientError
+
 from .exceptions import ActivityError
 from .utils import create_session
 
@@ -207,8 +209,8 @@ class TaskProcess(Process):
             # eat the timeout
             if not self.is_timeout(e):
                 raise
-
-        self.token = None # finished with task
+        finally:
+            self.token = None # finished with task
 
     def failure(self, error, cause):
         """Marks the task as a failure with a given reason
@@ -228,8 +230,8 @@ class TaskProcess(Process):
             # eat the timeout
             if not self.is_timeout(e):
                 raise
-
-        self.token = None # finished with task
+        finally:
+            self.token = None # finished with task
 
     def heartbeat(self):
         """Sends a heartbeat for states that require heartbeats of long running Activities"""
