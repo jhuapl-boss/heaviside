@@ -192,7 +192,7 @@ data to the worker(s) for processing.
         result: JsonPath
         output: JsonPath
         retry error(s) retry interval (seconds), max attempts, backoff rate
-        catch error(s):
+        catch error(s): JsonPath
             State(s)
 
 Arguments:
@@ -217,6 +217,11 @@ Modifiers:
            terminate, then execution will continue on the next valid state.
   - `error(s)`: A single string, array of strings, or empty array of errors to match
               against. An empty array matches against all errors.
+  - JsonPath: An optional JsonPath string about where to place the error information
+              in relationship to the errored state's input. By default the error
+              information will replace the errored state's input.
+              Error information is a dictionary containing the key 'Error' and
+              possibly the key 'Cause'.
 
 Note: Ordering of everything besides `retry` and `catch` is currently fixed. There
       can be multiple `retry` and `catch` statements and there is no ordering of
@@ -312,7 +317,7 @@ the parallel state is an array of outputs from each branch.
         output: JsonPath
     error:
         retry error(s) retry interval (seconds), max attempts, backoff rate
-        catch error(s):
+        catch error(s): JsonPath
             State(s)
 
 The `error` block contains the same `retry` and `catch` modifiers as the task state.

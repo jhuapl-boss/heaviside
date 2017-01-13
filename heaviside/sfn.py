@@ -358,17 +358,21 @@ class Retry(dict):
 class Catch(dict):
     """A catch statement that executes a state when the given error(s) are encountered"""
 
-    def __init__(self, errors, next):
+    def __init__(self, errors, next, results=None):
         """
         Args:
             errors (string|list): Error(s) to match against
             next (string|State): State to execute if a matched error is encountered
+            results (string|None): ResultPath for error information
         """
         if type(errors) != list:
             errors = [errors]
 
         super().__init__(ErrorEquals = errors,
                          Next = str(next))
+
+        if results:
+            self['ResultPath'] = results
 
 def _resolve(actual, defaults):
     """Break the actual arn apart and insert the defaults for the

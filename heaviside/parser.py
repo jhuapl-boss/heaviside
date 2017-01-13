@@ -439,17 +439,20 @@ def make_catch(args):
     """Make a Catch statement
 
     Args:
-        args (tuple): (errors:string|list, steps:[State])
+        args (tuple): (errors:string|list, results:None|string, steps:[State])
                       errors: Single error or list of errors to catch
                               If an empty list, replaced with ['States.ALL']
+                      results: ResultPath for where to place error information
+                               in the input for the next state
                       steps: The catch body
     """
-    errors, steps = args
+    errors, result_path, steps = args
+
     next_ = str(steps[0])
 
     if errors == []:
         errors = ['States.ALL'] # match all errors if none is given
-    catch = Catch(errors, next_)
+    catch = Catch(errors, next_, result_path)
     catch.branches = [steps]
     return catch
 
@@ -678,7 +681,7 @@ def parse(seq, region=None, account=None, translate=lambda x: x):
     ts_str = toktype('STRING') >> make_string >> make_ts_str
     array = op_('[') + maybe(string + many(op_(',') + string)) + op_(']') >> make_array
     retry = n_('retry') + (array|string) + number + number + number >> make_retry
-    catch = n_('catch') + (array|string) + op_(':') + block_s + many(state) + block_e >> make_catch
+    catch = n_('catch') + (array|string) + op_(':') + maybe(string) + block_s + many(state) + block_e >> make_catch
 
     # Transform / Error statements
     path = lambda t: maybe(n_(t) + op_(':') + string)
