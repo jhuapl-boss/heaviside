@@ -162,7 +162,7 @@ class SuccessState(State):
             name (string): Name of the state
             kwargs (dict): Arguments passed to State constructor
         """
-        super().__init__(name, 'Success', **kwargs)
+        super().__init__(name, 'Succeed', **kwargs)
 
 class FailState(State):
     def __init__(self, name, error, cause, **kwargs):
