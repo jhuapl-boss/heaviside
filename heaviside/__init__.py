@@ -154,6 +154,7 @@ class StateMachine(object):
                 raise Exception("State Machine {} doesn't exist yet".format(self.name))
         else:
             resp = self.client.delete_state_machine(stateMachineArn = self.arn)
+            self.arn = None
 
     def start(self, input_, name=None):
         """Start executing the state machine
