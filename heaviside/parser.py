@@ -395,6 +395,19 @@ def make_if_else(args):
     return state
 
 def make_switch(args):
+    """Make a switch statement into a ChoiceState
+
+    Args
+        args (tuple): (line:int,
+                       var:string,
+                       comment:string,
+                       (val:int|float|string|ts, (comment:string, steps:[State])),
+                       (comment:string, steps:[State]))
+
+                      var: JsonPath of the variable to use in the case comparisons
+                      val: Value to compare the variable against
+                      steps: The case / default body
+    """
     line, var, comment, cases, default = args
 
     choices = []
