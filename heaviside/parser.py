@@ -394,6 +394,30 @@ def make_if_else(args):
     add_name_comment(state, comment)
     return state
 
+def make_switch(args):
+    line, var, comment, cases, default = args
+
+    choices = []
+    branches = []
+
+    for val, (_, steps_) in cases:
+        choice = make_comp_simple((var, '==', val))
+        choice['Next'] = str(steps_[0])
+        branches.append(steps_)
+        choices.append(choice)
+
+    if default:
+        (_, steps_) = default
+        branches.append(steps_)
+        default = str(steps_[0])
+
+    name = make_name(line)
+    state = ChoiceState(name, choices, default)
+    state.line = line
+    state.branches = branches
+    add_name_comment(state, comment)
+    return state
+
 def make_parallel(args):
     """Make a ParallelState
 
@@ -730,7 +754,12 @@ def parse(seq, region=None, account=None, translate=lambda x: x):
     if_else = (l('if') + comparison + block +
                many(l('elif') + comparison + block) +
                maybe(l('else') + op_(':') + block)) >> make_if_else
-    choice_state = while_ | if_else
+    case = n_('case') + (number|ts_str) + op_(':') + block
+    switch = (l('switch') + string + op_(':') +
+              block_s + maybe(string) + many(case) +
+              maybe(n_('default') + op_(':') + block) +
+              block_e) >> make_switch
+    choice_state = while_ | if_else | switch
     choice_state_ = (choice_state + transform_block) >> make_flow_modifiers >> add_modifiers
     parallel = (l('parallel') + op_(':') + block +
                 many(l('parallel') + op_(':') + block)) >> make_parallel

@@ -78,6 +78,20 @@ while '$' == 1:
 transform:
     input: '$.foo'
 
+# switch statement becomes a Choice State
+# that only handles '==' cases
+switch '$.a':
+    case 1:
+        Pass()
+    case 'foo':
+        Pass()
+    case '1111-11-11T11:11:11Z':
+        Pass()
+    default:
+        Pass()
+transform:
+    output: '$.foo'
+
 # parallel executes multiple branches in parallel
 # the errors block applies to the whole parallel
 # state (all of the branches together)

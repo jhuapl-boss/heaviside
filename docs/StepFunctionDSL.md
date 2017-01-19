@@ -42,6 +42,7 @@ libraries page.
   - [Flow Control States](#Flow-Control-States)
     - [Comparison Operators](#Comparison-Operators)
     - [If](#If)
+    - [Switch](#Switch)
     - [While Loop](#While-Loop)
     - [Parallel](#Parallel)
 
@@ -282,6 +283,22 @@ The basic `if` statement. Multiple (or no) `elif` statements can be included. Th
 
 The `transform` block contains the same `input`, `result`, and `output` modifiers
 are the simple states use.
+
+#### Switch
+The basic `switch` statement. Multiple `case` statements are compared against the
+JsonPath variable in the `switch` statement. The `default` statement is optional.
+
+    switch JsonPath:
+        """State Name
+        State Comment"""
+        case value:
+            State(s)
+        default:
+            State(s)
+    transform:
+        input: JsonPath
+        result: JsonPath
+        output: JsonPath
 
 #### While Loop
 The basic `while` loop the continues to execute the given states until the condition
