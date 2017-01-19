@@ -124,7 +124,7 @@ class State(dict):
         if catches is not None:
             if type(catches) != list:
                 catches = [catches]
-            self['Catches'] = catches
+            self['Catch'] = catches
 
         if retries is not None:
             if type(retries) != list:
@@ -133,9 +133,9 @@ class State(dict):
 
     def addCatch(self, catch):
         """Add a Catch to this State"""
-        if 'Catches' not in self:
-            self['Catches'] = []
-        self['Catches'].add(catch)
+        if 'Catch' not in self:
+            self['Catch'] = []
+        self['Catch'].add(catch)
 
     def addRetry(self, retry):
         """Add a Retry to this State"""

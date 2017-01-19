@@ -628,7 +628,7 @@ def add_modifiers(args):
             if catches:
                 if type_ not in (TaskState, ParallelState):
                     raise error("Invalid modifier 'catch'")
-                state['Catches'] = catches
+                state['Catch'] = catches
                 state.branches = []
                 for catch in catches:
                     state.branches.extend(catch.branches)
