@@ -49,5 +49,8 @@ setup(
         'aws',
         'stepfunctions',
         'dsl',
+    ],
+    scripts=[
+        'bin/heaviside'
     ]
 )
