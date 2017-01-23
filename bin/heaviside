@@ -84,9 +84,9 @@ if __name__ == '__main__':
                                help="AWS IAM role name or full ARN of the role for the StepFunction")
 
     #### delete ####
-    start_parser = subparsers.add_parser('delete', help='Delete an AWS StepFunction')
-    start_parser.add_argument("name",
-                              help="Name of the StepFunction to delete")
+    delete_parser = subparsers.add_parser('delete', help='Delete an AWS StepFunction')
+    delete_parser.add_argument("name",
+                               help="Name of the StepFunction to delete")
 
     #### start ####
     start_parser = subparsers.add_parser('start', help='Start executing a AWS StepFunction')
