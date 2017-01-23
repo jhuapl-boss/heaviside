@@ -136,6 +136,9 @@ class StateMachine(object):
 
         role = self._resolve_role(role)
         definition = self.build(source)
+        # DP TODO: figure out error handling
+        #          should allow / return error output
+        #          and or throw a custom exception
 
         resp = self.client.create_state_machine(name = self.name,
                                                 definition = definition,
@@ -162,7 +165,7 @@ class StateMachine(object):
         If the state machine doesn't exists an exception is thrown
 
         Args:
-            input_ (string|dict): Json input data for the first state to process
+            input_ (Json): Json input data for the first state to process
             name (string|None): Name of the execution (default: Name of the state machine)
 
         Returns:
