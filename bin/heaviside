@@ -119,13 +119,18 @@ if __name__ == '__main__':
         credentials['access_key'] = args.access_key
 
     if args.command == "compile":
-        region = ''
-        if 'region' in credentials:
-            region = credentials['region']
+        def find_(key):
+            if key in credentials:
+                return credentials[key]
+            if 'credentials' in credentials:
+                for key_ in (key, 'aws_'+key):
+                    if key_ in credentials['credentials']:
+                        return credentials['credentials'][key_]
+            print("Could not find {} value, using ''".format(key), file=sys.stderr)
+            return ''
 
-        account = ''
-        if 'account_id' in credentials:
-            account = credentials['account_id']
+        region = find_('region')
+        account = find_('account_id')
 
         machine = heaviside.compile(Path(args.file),
                                     region=region,
