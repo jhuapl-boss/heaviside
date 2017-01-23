@@ -90,8 +90,9 @@ if __name__ == '__main__':
 
     #### start ####
     start_parser = subparsers.add_parser('start', help='Start executing a AWS StepFunction')
-    start_parser.add_argument('--wait', '-w',
-                              action = "store_true",
+    start_parser.add_argument('--no-wait', '-n',
+                              dest = "wait",
+                              action = "store_false",
                               help = "If the command should wait for the StepFunction to finish execution")
     start_parser.add_argument("name",
                               help="Name of the StepFunction to start executing")
