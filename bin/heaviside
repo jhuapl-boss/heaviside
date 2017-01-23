@@ -83,6 +83,11 @@ if __name__ == '__main__':
     create_parser.add_argument("role",
                                help="AWS IAM role name or full ARN of the role for the StepFunction")
 
+    #### delete ####
+    start_parser = subparsers.add_parser('delete', help='Delete an AWS StepFunction')
+    start_parser.add_argument("name",
+                              help="Name of the StepFunction to delete")
+
     #### start ####
     start_parser = subparsers.add_parser('start', help='Start executing a AWS StepFunction')
     start_parser.add_argument('--wait', '-w',
@@ -141,6 +146,15 @@ if __name__ == '__main__':
         try:
             machine = heaviside.StateMachine(name, **credentials)
             machine.create(Path(args.file), args.role)
+            sys.exit(0)
+        except Exception as e:
+            print("Error: {}".format(e))
+            sys.exit(1)
+    elif args.command == "delete":
+        try:
+            machine = heaviside.StateMachine(args.name, **credentials)
+            machine.delete(True)
+
             sys.exit(0)
         except Exception as e:
             print("Error: {}".format(e))
