@@ -27,8 +27,12 @@ except ImportError:
     cur_dir = os.path.dirname(__file__)
     parent_dir = os.path.join(cur_dir, "..")
     parent_dir = os.path.realpath(parent_dir)
-    sys.path.append(parent_dir)
-    import heaviside
+    target = os.path.join(parent_dir, "heaviside")
+    if os.path.isdir(target):
+        sys.path.append(parent_dir)
+        import heaviside
+    else:
+        raise
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description = "Heaviside CLI script for executing the Heaviside Python Library",
