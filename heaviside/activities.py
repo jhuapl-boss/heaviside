@@ -24,6 +24,8 @@ from botocore.exceptions import ClientError
 from .exceptions import ActivityError
 from .utils import create_session
 
+# DP TODO: rewrite as Mixins so that Processes, Threads, and other implementations can be used
+
 class Activity(object):
     """Class for work with and being an AWS Step Function Activity"""
 
@@ -33,7 +35,7 @@ class Activity(object):
             name (string): Name of the Activity
             arn (string): ARN of the Activity (None to have it looked up)
             worker (string): Name of the worker receiving tasks (None to have one created)
-            kwargs (dict): Same arguments as create_session()
+            kwargs (dict): Same arguments as utils.create_session()
         """
         self.name = name
         self.arn = arn
@@ -145,7 +147,19 @@ class Activity(object):
         resp = self.client.send_task_heartbeat(taskToken = self.token)
 
 class TaskProcess(Process):
+    """Process for processing an Activity's task input"""
+
     def __init__(self, worker, token, input_, target=None, **kwargs):
+        """
+        Args:
+            worker (string): Name of the activity work that accepted the tasking
+            token (string): AWS StepFunction token associated with the accepted tasking
+            input_ (Json): Json input to the activity invocation
+            target (callable|None): Function to call to process the input_ data
+                                    If target returns a generator corouting a heartbeat
+                                    is sent each time the function yields control
+            kwargs (dict): Same arguments as utils.create_session()
+        """
         super().__init__(name=worker)
         self.worker = worker
         self.token = token
@@ -155,6 +169,19 @@ class TaskProcess(Process):
         self.client = self.session.client('stepfunctions')
 
     def process(self, input_):
+        """Call the target function or raise an exception.
+
+        Designed to be overriden by a child class to provide an easy hook for processing
+        data.
+
+        Args:
+            input_ (Json): Input Json data passed to the constructor
+
+        Returns:
+            Generator Coroutine : This activity wants a heartbeat to be sent each time
+                                  the coroutine yields control
+            object : The results of processing the input data, to be passed to success()
+        """
         if self.target:
             return self.target(input_)
         else:
@@ -162,6 +189,11 @@ class TaskProcess(Process):
             raise Exception("No target to handle processing")
 
     def run(self):
+        """Called by Process.start() to process data
+
+        Note: If the task times out, the task results (or running coroutine)
+              are silently discarded.
+        """
         try:
             output_ = self.process(self.input_)
             # DP TODO: Add coroutine support
@@ -185,6 +217,16 @@ class TaskProcess(Process):
             self.failure(error, str(e))
 
     def is_timeout(self, ex, op_name=None):
+        """Check the exception to determine if it is a Boto3 ClientError
+        thrown because the task timed out.
+
+        Args:
+            ex (Exception) : Exception to check
+            op_name (string|None) : (Optional) name of the operation that was attempted
+
+        Returns:
+            bool : If the exception was caused by the task timing out
+        """
         try:
             rst = ex.response['Error']['Code'] == 'TaskTimedOut'
             if op_name:
@@ -195,6 +237,8 @@ class TaskProcess(Process):
 
     def success(self, output):
         """Marks the task successfully complete and returns the processed data
+
+        Note: This method will silently fail if the task has timed out
 
         Args:
             output (string|dict): Json response to return to the state machine
@@ -216,6 +260,8 @@ class TaskProcess(Process):
 
     def failure(self, error, cause):
         """Marks the task as a failure with a given reason
+
+        Note: This method will silently fail if the task has timed out
 
         Args:
             error (string): Failure error
@@ -244,7 +290,23 @@ class TaskProcess(Process):
         # heartbeat error handled in the run() method
 
 class ActivityProcess(Process):
+    """Process for polling an Activity's ARN and launching TaskProcesses to handle
+    the given tasking
+    """
+
     def __init__(self, name, task_proc, **kwargs):
+        """
+        Note: task_proc arguments are the same as TaskProcess (minus the target argument)
+        Note: task_proc must return an object with a start() method
+
+        Args:
+            name (string): Name of the activity to monitor
+                           The activity's ARN is looked up in AWS using the provided
+                           AWS credentials
+            task_proc (string|callable): Callable that produces a Process to run
+                                         If string, the class / function will be imported
+            kwargs (dict): Same arguments as utils.create_session()
+        """
         super().__init__(name=name)
         self.name = name
         self.credentials = kwargs
@@ -266,23 +328,35 @@ class ActivityProcess(Process):
         self.task_proc = task_proc
 
     def run(self):
+        """Called by Process.start() to process data
+
+        Note: Automatically creates the Activity ARN if it doesn't exist
+
+        """
         self.create()
 
         get_worker = lambda: (self.name + '-' + ''.join(random.sample(CHARS,6)))
 
+        worker = get_worker()
+
         # Note: needed for unit test, so the loop will exit
         self.running = True
         while self.running:
-            worker = get_worker()
             try:
                 token, input_ = self.task(worker)
                 if token is not None:
                     proc = self.task_proc(worker, token, input_, **self.credentials)
                     proc.start()
                     # DP TODO: figure out how to limit the total number of currently running task processes
+                    # DP ???: create a list of launched processes, so on terminate the handling tasks will terminate too
+                    #         if so, need to figure out how to send a failure for the tasks that havn't finished...
 
                     worker = get_worker()
             except Exception as e:
+                # DP ???: create a new worker name?
+                # DP ???: create a flag for if a task was accepted and fail it if there was an issue launching the task
+                # DP ???: What to do when there is an exception communicating with AWS
+                #         Stop running, wait, just loop and continue to fail?
                 pass # DP TODO: figure out logging to syslog
 
     def create(self, exception = False):
@@ -335,14 +409,37 @@ class ActivityProcess(Process):
             return resp['taskToken'], json.loads(resp['input'])
 
 class ActivityManager(object):
+    """Manager for launching multiple ActivityProcesses and monitoring that
+    they are still running.
+
+    Designed to be subclasses and customized to provide a list of processes to start
+    and monitor.
+    """
+
     def __init__(self):
         self.is_running = False
 
     def build(self):
-        """[() -> Process]"""
+        """Build a list of callables that return a process to monitor
+
+        Each callable is called once to create the inital process and
+        then each time the current process dies.
+
+        Should be overridden by the subclass.
+
+        Returns:
+            List of callables
+        """
         return []
 
     def run(self):
+        """Start the initial set of processes and monitor them to ensure
+        they are still running. If any have stopped, the method will restart
+        the processes.
+
+        Note: This is a blocking method. It will continue to run until
+        self.is_running is False
+        """
         activities = self.build()
         if len(activities) == 0:
             raise Exception("No activities to manage")

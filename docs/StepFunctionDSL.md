@@ -339,7 +339,7 @@ the parallel state is an array of outputs from each branch.
 
 The `error` block contains the same `retry` and `catch` modifiers as the task state.
 
-[stepfunctions library]: https://github.com/aplmicrons/stepfunctions
+[stepfunctions library]: https://github.com/jhuapl-boss/heaviside
 [language definition]: https://states-language.net/spec.html
 [language definition errors]: https://states-language.net/spec.html#appendix-a
 [language definition path]: https://states-language.net/spec.html#path
