@@ -109,8 +109,17 @@ components to the library.
 Currently Heaviside has only been tested with Python 3.5. In the future this
 will be expanded to hopefully include Python 2 compatability.
 
+## Related Projects
+
+* [statelint]: A Ruby project that verifies a AWS StepFunction definition file.
+               Includes checks like making sure that all states are reachable.
+               Helpful when developing a new StepFunction to ensure everything
+               is correct. It will catch structural problems that Heaviside
+               doesn't check for.
+
 
 [AWS StepFunctions]: https://aws.amazon.com/step-functions/
 [state machine language]: https://state-language.net/spec.html
 [StepFunctionDSL]: docs/StepFunctionDSL.md
 [Activities document]: docs/Activites.md
+[stateline]: https://github.com/awslabs/statelint
