@@ -8,7 +8,7 @@ flexible, is hard to write and maintain. The DSL
 
 ## DSL
 
-The document [docs/StepFunctionDSL.md] describes the Heaviside DSL.
+The [StepFunctionDSL] document describes the Heaviside DSL.
 
 ## Getting Started
 
@@ -100,7 +100,7 @@ components to the library.
 * `heaviside.StateMachine`: Class for creating and executing StepFunctions.
 * `heaviside.activities`: A submodule containing several helper classes providing
                           a framework for running StepFunction Activities.
-                          See [docs/Activities.md] for more information.
+                          See the [Activities document] for more information.
 
 ## Compatability
 
@@ -109,4 +109,6 @@ will be expanded to hopefully include Python 2 compatability.
 
 
 [AWS StepFunctions]: https://aws.amazon.com/step-functions/
-[state macine language]: https://state-language.net/spec.html
+[state machine language]: https://state-language.net/spec.html
+[StepFunctionDSL]: docs/StepFunctionDSL.md
+[Activites document]: docs/Activites.md
