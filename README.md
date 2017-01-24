@@ -8,7 +8,7 @@ flexible, is hard to write and maintain. The DSL
 
 ## DSL
 
-The document docs/StepFunctionDSL.md describes the Heaviside DSL.
+The document [docs/StepFunctionDSL.md] describes the Heaviside DSL.
 
 ## Getting Started
 
@@ -27,9 +27,6 @@ pip install heaviside
 The Heaviside package installs a script called `heaviside` that provides a CLI
 to the library. Running the command without arguments or with the `--help` or
 `-h` flag will provide detailed help.
-
-All sub-commands make use of AWS credentials to interact with AWS. See the
-`heaviside` help for information on defining the needed values.
 
 #### AWS Credentials
 
@@ -100,10 +97,10 @@ components to the library.
 
 * `heaviside.compile`: The method used to compile a Heaviside DSL file into
                        a AWS StepFunction.
-* 'heaviside.StateMachine`: Class for creating and executing StepFunctions.
-* 'heaviside.activities`: A submodule containing several helper classes providing
+* `heaviside.StateMachine`: Class for creating and executing StepFunctions.
+* `heaviside.activities`: A submodule containing several helper classes providing
                           a framework for running StepFunction Activities.
-                          See docs/Activities.md for more information.
+                          See [docs/Activities.md] for more information.
 
 ## Compatability
 
