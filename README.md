@@ -111,4 +111,4 @@ will be expanded to hopefully include Python 2 compatability.
 [AWS StepFunctions]: https://aws.amazon.com/step-functions/
 [state machine language]: https://state-language.net/spec.html
 [StepFunctionDSL]: docs/StepFunctionDSL.md
-[Activites document]: docs/Activites.md
+[Activities document]: docs/Activites.md
