@@ -52,6 +52,8 @@ def link(states, final=None):
     linked = []
     for i in range(len(states)):
         state = states[i]
+
+        # DP TODO: check to see if the given state name already exists
         linked.append(state)
 
         next_ = states[i+1] if i+1 < len(states) else final
