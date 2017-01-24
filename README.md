@@ -122,4 +122,4 @@ will be expanded to hopefully include Python 2 compatability.
 [state machine language]: https://state-language.net/spec.html
 [StepFunctionDSL]: docs/StepFunctionDSL.md
 [Activities document]: docs/Activites.md
-[stateline]: https://github.com/awslabs/statelint
+[statelint]: https://github.com/awslabs/statelint
