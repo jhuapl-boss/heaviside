@@ -13,6 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+__version__ = '0.8'
+
 import os
 
 try:
@@ -20,28 +22,28 @@ try:
 except ImportError:
     from distutils.core import setup
 
-# allow setup.py to be run from any path
-os.chdir(os.path.normpath(os.path.join(os.path.abspath(__file__), os.pardir)))
+here = os.path.abspath(os.path.dirname(__file__))
+def read(filename):
+    with open(os.path.join(here, filename), 'r') as fh:
+        return fh.read()
 
 setup(
     name='heaviside',
-    version='0.1',
+    version=__version__,
     packages=['heaviside'],
     url='https://github.com/jhuapl-boss/heaviside',
     license="Apache Software License",
     author='Derek Pryor',
     author_email='Derek.Pryor@jhuapl.edu',
     description='Python library and DSL for working with AWS StepFunctions',
-    install_requires=[
-        'funcparserlib',
-        'iso8601',
-        'boto3>=1.4.3'
-    ],
+    long_description=read('README.md'),
+    install_requires=read('requirements.txt').split('\n'),
     classifiers=[
         'Development Status :: 4 - Beta',
         'Intended Audience :: Developers',
         'License :: OSI Approved :: Apache Software License',
         'Programming Language :: Python :: 3.5',
+        'Programming Language :: Python :: 2.7',
     ],
     keywords=[
         'boss',
