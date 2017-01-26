@@ -12,13 +12,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from pathlib import PosixPath
 
-from unittest import mock
+try:
+    from unittest import mock
+except ImportError:
+    import mock
+
+try:
+    from pathlib import PosixPath
+except ImportError:
+    from heaviside.utils import Path as PosixPath
 
 class MockPath(PosixPath):
     def __init__(self, path):
-        super().__init__()
+        super(MockPath, self).__init__()
         self.open = mock.MagicMock()
         # close() is done on the return of open()
 
@@ -27,7 +34,7 @@ class MockSession(object):
     for each client type requested"""
 
     def __init__(self, **kwargs):
-        super().__init__()
+        super(MockSession, self).__init__()
 
         self.clients = {}
         self.kwargs = kwargs

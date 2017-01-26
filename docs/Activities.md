@@ -44,6 +44,12 @@ def example_heartbeat(input_):
     for i in input_:
         yield # send heartbeat
         # process i
+
+    # Python 3
+    return output # whatever data to pass to the next step
+
+    # Python 2
+    yield output # whatever data to pass to the next step
 ```
 
 ### ActivityProcess

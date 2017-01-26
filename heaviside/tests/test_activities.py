@@ -14,10 +14,14 @@
 
 import types
 import unittest
-from unittest import mock
 from io import StringIO
 
 from botocore.exceptions import ClientError
+
+try:
+    from unittest import mock
+except ImportError:
+    import mock
 
 from .utils import MockPath, MockSession
 
@@ -33,7 +37,7 @@ class TimeoutError(ClientError):
             }
         }
 
-        super().__init__(err_rsp, op_name)
+        super(TimeoutError, self).__init__(err_rsp, op_name)
 
 class BossError(Exception):
     pass
@@ -177,7 +181,7 @@ class TestTaskProcess(unittest.TestCase):
         def target(input_):
             yield
             yield
-            return None
+            return
 
         # Just make sure the target is actually a generator
         self.assertEqual(type(target(None)), types.GeneratorType)

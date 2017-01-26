@@ -16,7 +16,7 @@ class StepFunctionError(Exception):
     """Base class for all library errors"""
 
     def __init__(self, lineno, pos, msg, line=''):
-        super().__init__(msg)
+        super(StepFunctionError, self).__init__(msg)
         self.lineno = lineno
         self.pos = pos
         self.line = line
@@ -37,7 +37,7 @@ class ParserError(StepFunctionError):
 
 class ActivityError(Exception):
     def __init__(self, error, cause):
-        super().__init__(cause)
+        super(ActivityError, self).__init__(cause)
         self.error = error
         self.cause = cause
 

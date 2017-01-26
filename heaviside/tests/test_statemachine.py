@@ -13,7 +13,11 @@
 # limitations under the License.
 
 import unittest
-from unittest import mock
+
+try:
+    from unittest import mock
+except ImportError:
+    import mock
 
 from .utils import MockSession
 

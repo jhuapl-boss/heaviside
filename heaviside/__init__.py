@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from __future__ import print_function
+from __future__ import print_function, unicode_literals
 
 import sys
 import time
@@ -58,7 +58,7 @@ def compile(source, region=None, account_id=None, translate=None, file=sys.stder
         return def_
     except StepFunctionError as e:
         print('File "{}", line {}'.format(source_name, e.lineno), file=file)
-        print(e.line, file=file)
+        print('{}'.format(e.line), file=file)
         print((' ' * e.pos) + '^', file=file)
         print('Syntax Error: {}'.format(str(e)), file=file)
         return None

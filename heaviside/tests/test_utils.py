@@ -12,9 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import unicode_literals
+
 import unittest
-from unittest import mock
 from io import StringIO
+
+try:
+    from unittest import mock
+except ImportError:
+    import mock
 
 from .utils import MockPath, MockSession
 from heaviside import utils
@@ -160,7 +166,7 @@ class TestCreateSession(unittest.TestCase):
         calls = [mock.call.list_users(MaxItems=1)]
         self.assertEqual(client.mock_calls, calls)
 
-    @mock.patch('heaviside.utils.urllib.request.urlopen', autospec=True)
+    @mock.patch('heaviside.utils.urlopen', autospec=True)
     @mock.patch('heaviside.utils.Session', autospec=True)
     def test_lookup_region(self, mSession, mUrlOpen):
         # only check the logic for looking up the region

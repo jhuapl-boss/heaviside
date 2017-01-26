@@ -15,11 +15,15 @@
 import os
 import sys
 import unittest
-from unittest import mock
 from io import StringIO
-from pathlib import Path
+
+try:
+    from unittest import mock
+except ImportError:
+    import mock
 
 import heaviside
+Path = heaviside.utils.Path
 
 cur_dir = Path(os.path.dirname(os.path.realpath(__file__)))
 

@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import urllib
 import json
 from io import IOBase, StringIO
 from collections import Mapping
@@ -21,14 +20,24 @@ from contextlib import contextmanager
 from boto3.session import Session
 
 try:
+    from urllib.request import urlopen
+except ImportError:
+    from urllib2 import urlopen
+
+try:
     from pathlib import Path
 except ImportError:
+    import os
+
     class Path(object):
-        def __init__(self, path):
+        def __init__(self, path = '/'):
             self.path = path
 
         def open(self, *args, **kwargs):
             return open(self.path, *args, **kwargs)
+
+        def __div__(self, path):
+            return Path(os.path.join(self.path, path))
 
 @contextmanager
 def read(obj):
@@ -44,11 +53,16 @@ def read(obj):
     Returns:
         file object: File handle containing data
     """
+    try: # Python 2 compatibility
+        is_unicode = isinstance(obj, unicode)
+    except NameError:
+        is_unicode = False
+
     is_open = False
     if isinstance(obj, Path):
         fh = obj.open()
         is_open = True
-    elif isinstance(obj, str):
+    elif isinstance(obj, str) or is_unicode:
         fh = StringIO(obj)
         fh.name = '<string>'
     elif isinstance(obj, IOBase):
@@ -144,7 +158,7 @@ def create_session(**kwargs):
             region = locate(('region', 'aws_region'), (kwargs, credentials))
         except:
             try:
-                region = urllib.request.urlopen('http://169.254.169.254/latest/meta-data/placement/availability-zone/')
+                region = urlopen('http://169.254.169.254/latest/meta-data/placement/availability-zone/')
                 region = region.read().decode('utf-8')[:-1] # remove AZ character from region name
             except:
                 raise Exception("Could not locate AWS region to connect to")

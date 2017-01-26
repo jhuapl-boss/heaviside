@@ -27,6 +27,12 @@ def read(filename):
     with open(os.path.join(here, filename), 'r') as fh:
         return fh.read()
 
+def test_suite():
+    import unittest
+    loader = unittest.TestLoader()
+    suite = loader.discover('heaviside', pattern='test_*.py')
+    return suite
+
 setup(
     name='heaviside',
     version=__version__,
@@ -54,5 +60,6 @@ setup(
     ],
     scripts=[
         'bin/heaviside'
-    ]
+    ],
+    test_suite='setup.test_suite'
 )

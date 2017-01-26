@@ -160,7 +160,7 @@ class TaskProcess(Process):
                                     is sent each time the function yields control
             kwargs (dict): Same arguments as utils.create_session()
         """
-        super().__init__(name=worker)
+        super(TaskProcess, self).__init__(name=worker)
         self.worker = worker
         self.token = token
         self.input_ = input_
@@ -201,10 +201,12 @@ class TaskProcess(Process):
                 try:
                     it = output_
                     while True:
-                        next(it)
+                        output_ = next(it)
                         self.heartbeat()
                 except StopIteration as e:
-                    output_ = e.value
+                    # Support getting the output from both Python 2 & 3 generators
+                    if hasattr(e, 'value'):
+                        output_ = e.value
             self.success(output_)
         except ActivityError as e:
             self.failure(e.error, e.cause)
@@ -307,7 +309,7 @@ class ActivityProcess(Process):
                                          If string, the class / function will be imported
             kwargs (dict): Same arguments as utils.create_session()
         """
-        super().__init__(name=name)
+        super(ActivityProcess, self).__init__(name=name)
         self.name = name
         self.credentials = kwargs
         self.session, self.account_id = create_session(**kwargs)
