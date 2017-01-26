@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 
 # Copyright 2016 The Johns Hopkins University Applied Physics Laboratory
 #
@@ -14,11 +14,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import print_function
+
 import os
 import sys
 import json
 import argparse
-from pathlib import Path
 
 try:
     import heaviside
@@ -33,6 +34,11 @@ except ImportError:
         import heaviside
     else:
         raise
+
+# heaviside.utils handles either importing pathlib
+# or creating a custom Path object (for Python 2.7+)
+Path = heaviside.utils.Path
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description = "Heaviside CLI script for executing the Heaviside Python Library",

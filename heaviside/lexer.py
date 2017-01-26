@@ -41,7 +41,9 @@ class Token(object):
         self.line = line
 
     def __str__(self):
-        pos = '{},{}-{},{}'.format(*self.start, *self.stop)
+        sl, sp = self.start
+        el, ep = self.stop
+        pos = '{},{}-{},{}'.format(sl, sp, el, ep)
         return '{}, {}, {!r}'.format(pos, self.code, self.value)
 
     def __repr__(self):

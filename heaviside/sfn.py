@@ -22,7 +22,7 @@ class _StateMachineEncoder(json.JSONEncoder):
     def default(self, o):
         if type(o) == Timestamp:
             return str(o)
-        return super().default(o)
+        return super(_StateMachineEncoder, self).default(o)
 
 class Branch(dict):
     """A branch of execution. A list of self contains states (only references 
@@ -37,7 +37,7 @@ class Branch(dict):
                                      States for the branch to execute
             start (None|State|string): The first State to start execution on
         """
-        super().__init__()
+        super(Branch, self).__init__()
         # Makes states be dumped in the same order they were added
         # making it easier to read the output and match it to the input
         self['States'] = OrderedDict() 
@@ -80,7 +80,7 @@ class Machine(Branch):
             version (string): AWS State MAchine Language version used
             timeout (int): Overall state machine timeout
         """
-        super().__init__(states, start)
+        super(Machine, self).__init__(states, start)
 
         if comment is not None:
             self['Comment'] = comment
@@ -112,7 +112,7 @@ class State(dict):
             catches (Catch|[Catch]): Catch(s) for the State
             retires (Retry|[Retry]): Retry(s) for the State
         """
-        super().__init__(Type = type_)
+        super(State, self).__init__(Type = type_)
         self.Name = name
 
         if next is not None:
@@ -153,7 +153,7 @@ class PassState(State):
             name (string): Name of the state
             kwargs (dict): Arguments passed to State constructor
         """
-        super().__init__(name, 'Pass', **kwargs)
+        super(PassState , self).__init__(name, 'Pass', **kwargs)
 
 class SuccessState(State):
     def __init__(self, name, **kwargs):
@@ -162,7 +162,7 @@ class SuccessState(State):
             name (string): Name of the state
             kwargs (dict): Arguments passed to State constructor
         """
-        super().__init__(name, 'Succeed', **kwargs)
+        super(SuccessState, self).__init__(name, 'Succeed', **kwargs)
 
 class FailState(State):
     def __init__(self, name, error, cause, **kwargs):
@@ -173,7 +173,7 @@ class FailState(State):
             cause (string): Failure error cause
             kwargs (dict): Arguments passed to State constructor
         """
-        super().__init__(name, 'Fail', **kwargs)
+        super(FailState, self).__init__(name, 'Fail', **kwargs)
         self['Error'] = error
         self['Cause'] = cause
 
@@ -185,7 +185,7 @@ class TaskState(State):
             resource (string): ARN of AWS resource to invoke
             kwargs (dict): Arguments passed to State constructor
         """
-        super().__init__(name, 'Task', **kwargs)
+        super(TaskState, self).__init__(name, 'Task', **kwargs)
         self['Resource'] = resource
 
 class WaitState(State):
@@ -199,7 +199,7 @@ class WaitState(State):
             seconds_path (string): JsonPath to location of seconds
             kwargs (dict): Arguments passed to State constructor
         """
-        super().__init__(name, 'Wait', **kwargs)
+        super(WaitState, self).__init__(name, 'Wait', **kwargs)
 
         if seconds is not None:
             self['Seconds'] = int(seconds)
@@ -221,7 +221,7 @@ class ParallelState(State):
             branches (list): List of List of States to be executed
             kwargs (dict): Arguments passed to State constructor
         """
-        super().__init__(name, 'Parallel', **kwargs)
+        super(ParallelState, self).__init__(name, 'Parallel', **kwargs)
 
         if branches is None:
             branches = []
@@ -244,7 +244,7 @@ class ChoiceState(State):
             default (string|State): Default state if no Choice matches
             kwargs (dict): Arguments passed to State constructor
         """
-        super().__init__(name, 'Choice', **kwargs)
+        super(ChoiceState, self).__init__(name, 'Choice', **kwargs)
 
         if choices is None:
             choices = []
@@ -274,7 +274,7 @@ class Choice(dict):
             value (int|float|string|Timestamp): value to compare against
             next (string|State): State to execute if the comparison is True
         """
-        super().__init__(Variable = variable)
+        super(Choice, self).__init__(Variable = variable)
 
         self[op] = value
         self.op = op # for __str__ / __repr__
@@ -297,7 +297,7 @@ class NotChoice(dict):
             value (Choice): Choice to negate
             next (string|State): State to execute if the negated comparison is True
         """
-        super().__init__(Not = value)
+        super(NoteChoice, self).__init__(Not = value)
 
         if next_ is not None:
             self['Next'] = str(next_)
@@ -318,7 +318,7 @@ class AndOrChoice(dict):
             values (list): list of two or more Choices to combind the results of
             next (string|State): State to execute if the whole results is True
         """
-        super().__init__()
+        super(AndOrChoice, self).__init__()
 
         if type(values) != list:
             values = [values]
@@ -350,7 +350,7 @@ class Retry(dict):
         if type(errors) != list:
             errors = [errors]
 
-        super().__init__(ErrorEquals = errors,
+        super(Retry, self).__init__(ErrorEquals = errors,
                          IntervalSeconds = int(interval),
                          MaxAttempts = int(max),
                          BackoffRate = float(backoff))
@@ -368,7 +368,7 @@ class Catch(dict):
         if type(errors) != list:
             errors = [errors]
 
-        super().__init__(ErrorEquals = errors,
+        super(Catch, self).__init__(ErrorEquals = errors,
                          Next = str(next))
 
         if results:
@@ -401,7 +401,10 @@ def _resolve(actual, defaults):
         # Wrap the join because an error should only be produced if we try
         # to use a None value. None can be passed in the defaults if that
         # default value is never used
-        arn = ":".join([*defaults[:offset], *actual_, name])
+        vals = defaults[:offset]
+        vals.extend(actual_)
+        vals.append(name)
+        arn = ":".join(vals)
         return arn
     except TypeError:
         raise Exception("One or more of the default values for ARN '{}' was not specified".format(actual))

@@ -106,8 +106,7 @@ components to the library.
 
 ## Compatability
 
-Currently Heaviside has only been tested with Python 3.5. In the future this
-will be expanded to hopefully include Python 2 compatability.
+Currently Heaviside has only been tested with Python 2.7 and 3.5.
 
 ## Related Projects
 

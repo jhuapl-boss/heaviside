@@ -16,10 +16,19 @@ import urllib
 import json
 from io import IOBase, StringIO
 from collections import Mapping
-from pathlib import Path
 from contextlib import contextmanager
 
 from boto3.session import Session
+
+try:
+    from pathlib import Path
+except ImportError:
+    class Path(object):
+        def __init__(self, path):
+            self.path = path
+
+        def open(self, *args, **kwargs):
+            return open(self.path, *args, **kwargs)
 
 @contextmanager
 def read(obj):
