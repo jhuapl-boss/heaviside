@@ -38,7 +38,7 @@ setup(
     version=__version__,
     packages=['heaviside'],
     url='https://github.com/jhuapl-boss/heaviside',
-    license="Apache Software License",
+    license="Apache Software License 2.0",
     author='Derek Pryor',
     author_email='Derek.Pryor@jhuapl.edu',
     description='Python library and DSL for working with AWS StepFunctions',
