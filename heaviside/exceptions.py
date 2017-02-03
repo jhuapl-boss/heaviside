@@ -12,32 +12,55 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-class StepFunctionError(Exception):
-    """Base class for all library errors"""
-
-    def __init__(self, lineno, pos, msg, line=''):
-        super(StepFunctionError, self).__init__(msg)
-        self.lineno = lineno
-        self.pos = pos
-        self.line = line
-
-class TokenError(StepFunctionError):
-    @classmethod
-    def from_tokenize(cls, error):
-        msg, (lineno, pos) = error.args
-
-        return cls(lineno, pos, msg)
-
-class ParserError(StepFunctionError):
-    @classmethod
-    def from_token(cls, tok, msg):
-        lineno, pos = tok.start
-        line = tok.line.rstrip() # remove newline
-        return cls(lineno, pos, msg, line)
-
 class ActivityError(Exception):
     def __init__(self, error, cause):
         super(ActivityError, self).__init__(cause)
         self.error = error
         self.cause = cause
+
+class HeavisideError(Exception):
+    """Base class for all Heaviside errors"""
+    pass
+
+class CompileError(HeavisideError):
+    """A syntax error was encountered when compiling a Heaviside file
+
+    Printing a CompileError will produce a message similar to a
+    Python SyntaxError.
+    """
+
+    def __init__(self, lineno, pos, line, msg):
+        """Args:
+            lineno (int): Line number of the error
+            pos (int): Position in the line where the error starts
+            line (string): The line of the Heaviside file where the problem is
+            msg (string): Syntax error message
+        """
+        super(CompileError, self).__init__(msg)
+        self.source = '<unknown>'
+        self.lineno = lineno
+        self.pos = pos
+        self.line = line
+        self.msg = msg
+
+    def __str__(self):
+        lines = []
+        lines.append('File "{}", line {}'.format(self.source, self.lineno))
+        # Note: Using format because of Python 2.7 string types
+        lines.append('{}'.format(self.line))
+        lines.append((' ' * self.pos) + '^')
+        lines.append('Syntax Error: {}'.format(self.msg))
+        return '\n'.join(lines)
+
+    @classmethod
+    def from_token(cls, tok, msg):
+        lineno, pos = tok.start
+        line = tok.line.rstrip() # remove newline
+        return cls(lineno, pos, line, msg)
+
+    @classmethod
+    def from_tokenize(cls, error):
+        msg, (lineno, pos) = error.args
+
+        return cls(lineno, pos, '', msg)
 

@@ -127,66 +127,51 @@ if __name__ == '__main__':
     if args.access_key:
         credentials['access_key'] = args.access_key
 
-    if args.command == "compile":
-        def find_(key):
-            if key in credentials:
-                return credentials[key]
-            if 'credentials' in credentials:
-                for key_ in (key, 'aws_'+key):
-                    if key_ in credentials['credentials']:
-                        return credentials['credentials'][key_]
-            print("Could not find {} value, using ''".format(key), file=sys.stderr)
-            return ''
+    try:
+        if args.command == "compile":
+            def find_(key):
+                if key in credentials:
+                    return credentials[key]
+                if 'credentials' in credentials:
+                    for key_ in (key, 'aws_'+key):
+                        if key_ in credentials['credentials']:
+                            return credentials['credentials'][key_]
+                print("Could not find {} value, using ''".format(key), file=sys.stderr)
+                return ''
 
-        region = find_('region')
-        account = find_('account_id')
+            region = find_('region')
+            account = find_('account_id')
 
-        machine = heaviside.compile(Path(args.file),
-                                    region=region,
-                                    account_id=account,
-                                    indent=3)
+            machine = heaviside.compile(Path(args.file),
+                                        region=region,
+                                        account_id=account,
+                                        indent=3)
 
-        if machine:
             args.output.write(machine)
-            sys.exit(0)
-        else:
-            sys.exit(1)
-    elif args.command == "create":
-        name = args.name
-        if name is None:
-            name = os.path.basename(args.file)
-            name = os.path.splitext(name)[0]
+        elif args.command == "create":
+            name = args.name
+            if name is None:
+                name = os.path.basename(args.file)
+                name = os.path.splitext(name)[0]
 
-        try:
             machine = heaviside.StateMachine(name, **credentials)
             machine.create(Path(args.file), args.role)
-            sys.exit(0)
-        except Exception as e:
-            print("Error: {}".format(e))
-            sys.exit(1)
-    elif args.command == "delete":
-        try:
+        elif args.command == "delete":
             machine = heaviside.StateMachine(args.name, **credentials)
             machine.delete(True)
-
-            sys.exit(0)
-        except Exception as e:
-            print("Error: {}".format(e))
-            sys.exit(1)
-    elif args.command == "start":
-        if args.json is not None:
-            input_ = args.json
-        elif args.input is not None:
-            if args.input == '-':
-                input_  = sys.stdin.read()
+        elif args.command == "start":
+            if args.json is not None:
+                input_ = args.json
+            elif args.input is not None:
+                if args.input == '-':
+                    input_  = sys.stdin.read()
+                else:
+                    with open(args.input, 'r') as fh:
+                        input_ = fh.read()
             else:
-                with open(args.input, 'r') as fh:
-                    input_ = fh.read()
-        else:
-            input_ = "{}"
-        input_ = json.loads(input_)
+                input_ = "{}"
+            input_ = json.loads(input_)
 
-        try:
             machine = heaviside.StateMachine(args.name, **credentials)
             arn = machine.start(input_)
 
@@ -195,11 +180,13 @@ if __name__ == '__main__':
                 print(json.dumps(output, indent=3))
             else:
                 print("Execution ARN: {}".format(arn))
-            sys.exit(0)
-        except Exception as e:
-            print("Error: {}".format(e))
-            sys.exit(1)
-    else:
-        print("Unsupported command: {}".format(args.command))
+        else:
+            raise Exception('Unsupported command: {}'.format(args.command))
+    except heaviside.exceptions.HeavisideError as e:
+        print(e)
         sys.exit(1)
+    except Exception as e:
+        print('Error: {}'.format(e))
+        sys.exit(1)
+    sys.exit(0)
 

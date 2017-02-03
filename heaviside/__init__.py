@@ -23,7 +23,7 @@ from botocore.exceptions import ClientError
 
 from .lexer import tokenize_source
 from .parser import parse
-from .exceptions import StepFunctionError
+from .exceptions import CompileError
 from .utils import create_session, read
 
 
@@ -56,12 +56,9 @@ def compile(source, region=None, account_id=None, translate=None, file=sys.stder
         machine = parse(tokens, region, account_id, translate)
         def_ = machine.definition(**kwargs)
         return def_
-    except StepFunctionError as e:
-        print('File "{}", line {}'.format(source_name, e.lineno), file=file)
-        print('{}'.format(e.line), file=file)
-        print((' ' * e.pos) + '^', file=file)
-        print('Syntax Error: {}'.format(str(e)), file=file)
-        return None
+    except CompileError as e:
+        e.source = source_name
+        raise e # DP ???: Should the original stacktrace be perserved?
     #except Exception as e:
     #    print("Unhandled Error: {}".format(e), file=file)
 
@@ -108,6 +105,9 @@ class StateMachine(object):
 
         Returns:
             string: State machine definition
+
+        Raises:
+            CompileError: If the was a problem compiling the source
         """
         region = self.session.region_name
         return compile(source, region, self.account_id, self._translate, **kwargs)
@@ -132,15 +132,15 @@ class StateMachine(object):
         Args:
             source (string|file path|file object): Source of step function dsl
             role (string): AWS IAM role for the state machine to execute under
+
+        Raises:
+            CompileError: If the was a problem compiling the source
         """
         if self.arn is not None:
             raise Exception("State Machine {} already exists".format(self.arn))
 
         role = self._resolve_role(role)
         definition = self.build(source)
-        # DP TODO: figure out error handling
-        #          should allow / return error output
-        #          and or throw a custom exception
 
         resp = self.client.create_state_machine(name = self.name,
                                                 definition = definition,
@@ -220,7 +220,10 @@ class StateMachine(object):
             period (int): Number of seconds to sleep between polls for status
 
         Returns:
-            dict|None: Dict of Json data or None if there was an error
+            dict: Dict of Json data
+
+        Exceptions:
+            Exception: If there was an error getting the failure message
         """
         while True:
             resp = self.client.describe_execution(executionArn = arn)

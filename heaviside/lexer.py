@@ -15,7 +15,7 @@
 import tokenize
 import token
 
-from .exceptions import TokenError
+from .exceptions import CompileError
 
 USELESS = ['NEWLINE', 'NL', 'COMMENT']
 
@@ -74,5 +74,5 @@ def tokenize_source(source):
         tokens = [Token(*t) for t in tokens]
         return [t for t in tokens if t.code not in USELESS]
     except tokenize.TokenError as e:
-        raise TokenError.from_tokenize(e)
+        raise CompileError.from_tokenize(e)
 

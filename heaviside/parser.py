@@ -18,7 +18,7 @@ from funcparserlib.parser import (some, a, many, skip, maybe, forward_decl)
 from funcparserlib.parser import NoParseError, State
 
 from .lexer import Token
-from .exceptions import ParserError
+from .exceptions import CompileError
 
 from .sfn import Machine
 from .sfn import Retry, Catch, Timestamp
@@ -286,7 +286,7 @@ def make_wait(args):
     line, key, value = args
 
     if key == 'timestamp' and type(value) != Timestamp:
-        raise ParserError(line, 0, "Invalid timestamp '{}'".format(value), '')
+        raise CompileError(line, 0, '', "Invalid timestamp '{}'".format(value))
 
     name = make_name(line)
     kwargs = {key: value}
@@ -576,8 +576,8 @@ def add_modifiers(args):
 
     type_ = type(state)
 
-    # DP TODO: Create AST so that ParserError context can be filled in
-    error = lambda m: ParserError(state.line, 0, m, '')
+    # DP TODO: Create AST so that CompileError context can be filled in
+    error = lambda m: CompileError(state.line, 0, '', m)
 
     if args:
         comment, timeout, heartbeat, transform, data, modifiers = args
@@ -706,7 +706,7 @@ def parse(seq, region=None, account=None, translate=lambda x: x):
             else:
                 raise Exception("Unsuported task type '{}'".format(type_))
         except Exception as e:
-            raise ParserError(line, 0, str(e), '')
+            raise CompileError(line, 0, '', str(e))
 
         state = TaskState(name, task)
         state.line = line
@@ -807,5 +807,5 @@ def parse(seq, region=None, account=None, translate=lambda x: x):
             msg = "Invalid syntax"
             # DP ???: Should the actual token be used in the error message?
 
-        raise ParserError.from_token(tok, msg)
+        raise CompileError.from_token(tok, msg)
 
