@@ -32,14 +32,13 @@ class TestCompile(unittest.TestCase):
         filepath = cur_dir / 'sfn' / filename
         stderr = StringIO()
 
-        out = heaviside.compile(filepath, file=stderr)
-
-        stderr.seek(0)
-        actual = stderr.read().split('\n')[3]
-        expected = "Syntax Error: {}".format(error_msg)
-
-        self.assertEqual(out, None)
-        self.assertEqual(actual, expected)
+        try:
+            out = heaviside.compile(filepath)
+            self.assertFalse(True, "compile() should result in an exception")
+        except heaviside.exceptions.CompileError as ex:
+            actual = str(ex).split('\n')[3]
+            expected = "Syntax Error: {}".format(error_msg)
+            self.assertEqual(actual, expected)
 
     def test_unterminated_quote(self):
         self.execute('error_unterminated_quote.sfn', 'Unterminated quote')

@@ -27,7 +27,7 @@ from .exceptions import CompileError
 from .utils import create_session, read
 
 
-def compile(source, region=None, account_id=None, translate=None, file=sys.stderr, **kwargs):
+def compile(source, region=None, account_id=None, translate=None, **kwargs):
     """Compile a source step function dsl file into the AWS state machine definition
 
     Args:
@@ -36,7 +36,6 @@ def compile(source, region=None, account_id=None, translate=None, file=sys.stder
         account_id (string): AWS Account ID for Lambda / Activity ARNs that need to be filled in
         translate (None|function): Function that translates a Lambda / Activity name before
                                    the ARN is completed
-        file (file object): Where any error messages are printed (default stderr)
         kwargs (dict): Arguments to be passed to json.dumps() when creating the definition
 
     Returns:
@@ -60,7 +59,7 @@ def compile(source, region=None, account_id=None, translate=None, file=sys.stder
         e.source = source_name
         raise e # DP ???: Should the original stacktrace be perserved?
     #except Exception as e:
-    #    print("Unhandled Error: {}".format(e), file=file)
+    #    print("Unhandled Error: {}".format(e))
 
 class StateMachine(object):
     """Class for working with and executing AWS Step Function State Machines"""
