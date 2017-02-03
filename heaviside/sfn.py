@@ -297,7 +297,7 @@ class NotChoice(dict):
             value (Choice): Choice to negate
             next (string|State): State to execute if the negated comparison is True
         """
-        super(NoteChoice, self).__init__(Not = value)
+        super(NotChoice, self).__init__(Not = value)
 
         if next_ is not None:
             self['Next'] = str(next_)
