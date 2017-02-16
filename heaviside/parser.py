@@ -145,7 +145,7 @@ COMPARISON = {
         str: 'StringGreaterThanEquals',
         int: 'NumericGreaterThanEquals',
         float: 'NumericGreaterThanEquals',
-        '': 'TimestampGreaterThanEquals',
+        Timestamp: 'TimestampGreaterThanEquals',
     },
 }
 
@@ -302,17 +302,22 @@ def make_comp_simple(args):
     """Make a Choice statement for a ChoiceState
 
     Args:
-        args (tuple): (var:string, op:string, val:string|int|Timestamp)
+        args (tuple): (var:string, op:string, val:bool|string|int|Timestamp)
     """
     var, op, val = args
     
-    if op == '!=':
-        op = COMPARISON['=='][type(val)]
-        choice = Choice(var, op, val)
-        return NotChoice(choice)
-    else:
-        op = COMPARISON[op][type(val)]
-        return Choice(var, op, val)
+    try:
+        if op == '!=':
+            op = COMPARISON['=='][type(val)]
+            choice = Choice(var, op, val)
+            return NotChoice(choice)
+        else:
+            op = COMPARISON[op][type(val)]
+            return Choice(var, op, val)
+    except KeyError:
+        msg = "Cannot make '{}' comparison with type '{}'".format(op, type(val).__name__)
+        # TODO figure out location information
+        raise CompileError(0, 0, '', msg)
 
 def make_comp_not(args):
     """Wrap the given Choice in a NotChoice"""
@@ -715,6 +720,9 @@ def parse(seq, region=None, account=None, translate=lambda x: x):
     state = forward_decl()
 
     # Primatives
+    true = (n('true') | n('True')) >> const(True)
+    false = (n('false') | n('False')) >> const(False)
+    boolean = true | false
     number = toktype('NUMBER') >> make_number
     string = toktype('STRING') >> make_string
     ts_str = toktype('STRING') >> make_string >> make_ts_str
@@ -754,7 +762,7 @@ def parse(seq, region=None, account=None, translate=lambda x: x):
 
     # Comparison logic
     comp_op = op('==') | op('<') | op('>') | op('<=') | op('>=') | op('!=')
-    comp_simple = string + comp_op + (number|ts_str) >> make_comp_simple
+    comp_simple = string + comp_op + (boolean|number|ts_str) >> make_comp_simple
 
     comp_stmt = forward_decl()
     comp_base = forward_decl()
@@ -769,7 +777,7 @@ def parse(seq, region=None, account=None, translate=lambda x: x):
     if_else = (l('if') + comparison + block +
                many(l('elif') + comparison + block) +
                maybe(l('else') + op_(':') + block)) >> make_if_else
-    case = n_('case') + (number|ts_str) + op_(':') + block
+    case = n_('case') + (boolean|number|ts_str) + op_(':') + block
     switch = (l('switch') + string + op_(':') +
               block_s + maybe(string) + many(case) +
               maybe(n_('default') + op_(':') + block) +
