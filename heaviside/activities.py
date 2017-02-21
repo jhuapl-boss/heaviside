@@ -21,6 +21,7 @@ from string import ascii_uppercase as CHARS
 from multiprocessing import Process
 
 from botocore.exceptions import ClientError
+from botocore.client import Config
 
 from .exceptions import ActivityError
 from .utils import create_session
@@ -314,7 +315,7 @@ class ActivityProcess(Process):
         self.name = name
         self.credentials = kwargs
         self.session, self.account_id = create_session(**kwargs)
-        self.client = self.session.client('stepfunctions')
+        self.client = self.session.client('stepfunctions', config=Config(read_timeout=70))
         self.arn = None
         self.log = logging.getLogger(__name__)
 
