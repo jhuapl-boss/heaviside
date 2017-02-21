@@ -16,6 +16,7 @@ import types
 import time
 import random
 import json
+import logging
 from string import ascii_uppercase as CHARS
 from multiprocessing import Process
 
@@ -315,6 +316,7 @@ class ActivityProcess(Process):
         self.session, self.account_id = create_session(**kwargs)
         self.client = self.session.client('stepfunctions')
         self.arn = None
+        self.log = logging.getLogger(__name__)
 
         resp = self.client.list_activities()
         for activity in resp['activities']:
@@ -339,27 +341,34 @@ class ActivityProcess(Process):
 
         get_worker = lambda: (self.name + '-' + ''.join(random.sample(CHARS,6)))
 
-        worker = get_worker()
-
         # Note: needed for unit test, so the loop will exit
         self.running = True
         while self.running:
             try:
+                worker = get_worker()
                 token, input_ = self.task(worker)
                 if token is not None:
-                    proc = self.task_proc(worker, token, input_, **self.credentials)
-                    proc.start()
+                    try:
+                        proc = self.task_proc(worker, token, input_, **self.credentials)
+                        proc.start()
+                    except Exception as e:
+                        self.log.exception("Problem launching task process")
+                        self.log.debug("Attempting to fail task")
+                        try:
+                            self.client.send_task_failure(taskToken = token,
+                                                          error = 'Heaviside.Unknown',
+                                                          cause = str(e))
+                        except:
+                            pass # Eat error. Either a problem talking with AWS or task was already finished
+
                     # DP TODO: figure out how to limit the total number of currently running task processes
                     # DP ???: create a list of launched processes, so on terminate the handling tasks will terminate too
                     #         if so, need to figure out how to send a failure for the tasks that havn't finished...
-
-                    worker = get_worker()
             except Exception as e:
-                # DP ???: create a new worker name?
                 # DP ???: create a flag for if a task was accepted and fail it if there was an issue launching the task
                 # DP ???: What to do when there is an exception communicating with AWS
                 #         Stop running, wait, just loop and continue to fail?
-                pass # DP TODO: figure out logging to syslog
+                self.log.exception("Problem getting tasking")
 
     def create(self, exception = False):
         """Create the Activity in AWS
