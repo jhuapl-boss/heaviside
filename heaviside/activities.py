@@ -415,7 +415,7 @@ class ActivityProcess(Process):
         resp = self.client.get_activity_task(activityArn = self.arn,
                                              workerName = worker)
 
-        if len(resp['taskToken']) == 0:
+        if 'taskToken' not in resp or len(resp['taskToken']) == 0:
             return None, None
         else:
             return resp['taskToken'], json.loads(resp['input'])
