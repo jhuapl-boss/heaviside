@@ -140,6 +140,7 @@ def debug_(m):
 def const(value):
     def const_(token):
         return ASTValue(value, token)
+    return const_
 
 def tok_to_value(token):
     return ASTValue(token.value, token)
@@ -698,7 +699,7 @@ def json_text():
 
 def comparison_():
     ops = op('==') | op('<') | op('>') | op('<=') | op('>=') | op('!=')
-    op_vals = (boolean|number|timestamp|string)
+    op_vals = (boolean|number|string|timestamp)
     comp_op = string + ops + op_vals >> make(ASTCompOp)
 
     def multi(func):
@@ -788,12 +789,22 @@ def parse(seq, region=None, account=None, translate=lambda x: x):
     fail = n('Fail') + op_('(') + string + op_(',') + string + op_(')') + state_block >> make(ASTStateFail)
     task = (n('Lambda') | n('Activity')) + op_('(') + string + op_(')') + state_block >> make(ASTStateTask)
     wait_types = n('seconds') | n('seconds_path') | n('timestamp') | n('timestamp_path')
-    wait = n('Wait') + op_('(') + wait_types + op_('=') + (number|timestamp|string) + op_(')') + state_block >> make(ASTStateWait)
+    wait = n('Wait') + op_('(') + wait_types + op_('=') + (number|string|timestamp|string) + op_(')') + state_block >> make(ASTStateWait)
     simple_state = pass_ | success | fail | task | wait
 
-    while_ = n('while') + comparison + op_(':') + comment_block >> make(ASTStateWhile)
+    # Flow Control States
+    transform_modifier = ((n('input') + op_(':') + string >> make(ASTModInput)) |
+                          (n('result') + op_(':') + string >> make(ASTModResult)) |
+                          (n('output') + op_(':') + string >> make(ASTModOutput)))
+    transform_modifiers = transform_modifier + many(transform_modifier) >> make(ASTModifiers)
+    transform_block = maybe(n_('transform') + op_(':') + block_s + maybe(transform_modifiers) + block_e)
 
-    choice_state = while_
+    while_ = n('while') + comparison + op_(':') + comment_block + transform_block >> make(ASTStateWhile)
+    if_else = (n('if') + comparison + op_(':') + comment_block +
+               many(n_('elif') + comparison + op_(':') + block) +
+               maybe(n_('else') + op_(':') + block) + transform_block) >> make(ASTStateIfElse)
+
+    choice_state = while_ | if_else
 
     """
     # Flow Control blocks
@@ -821,9 +832,6 @@ def parse(seq, region=None, account=None, translate=lambda x: x):
     """
     state.define(simple_state | choice_state)
 
-    #import code
-    #code.interact(local=locals())
-
     # State Machine
     version = maybe(n('version') + op_(':') + string >> make(ASTModVersion))
     timeout = maybe(n('timeout') + op_(':') + number >> make(ASTModTimeout))
@@ -835,6 +843,9 @@ def parse(seq, region=None, account=None, translate=lambda x: x):
         #link(tree)
         tree.states = link(tree.states)
         function = StepFunction(tree)
+        #import code
+        #code.interact(local=locals())
+
         # TODO Link / modify the AST to be in the format needed to convert to JSON
         return function
     except NoParseError as e:

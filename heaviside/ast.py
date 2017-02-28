@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from collections import OrderedDict
+
 from funcparserlib.parser import (some, a, skip)
 
 from .lexer import Token
@@ -232,18 +234,36 @@ class ASTStateWait(ASTState):
 
 class ASTStateChoice(ASTState):
     state_type = 'Choice'
+    valid_modifiers = [ASTModInput, ASTModResult, ASTModOutput]
     DEFAULT = None
 
-    def __init__(self, state, comment):
-        super(ASTStateChoice, self).__init__(state, (comment, None))
-        self.branches = {}
+    def __init__(self, state, comment, transform):
+        super(ASTStateChoice, self).__init__(state, (comment, transform))
+
+        # Use an OrderedDict so that logic comparisons happen in the
+        # same order as in the source file
+        self.branches = OrderedDict()
 
 class ASTStateWhile(ASTStateChoice):
-    def __init__(self, state, comp, block):
+    def __init__(self, state, comp, block, transform):
         comment, states = block
-        super(ASTStateWhile, self).__init__(state, comment)
+        super(ASTStateWhile, self).__init__(state, comment, transform)
 
         self.branches[comp] = states
+
+class ASTStateIfElse(ASTStateChoice):
+    def __init__(self, state, comp, block, elif_, else_, transform):
+        comment, states = block
+        super(ASTStateIfElse, self).__init__(state, comment, transform)
+
+        self.branches[comp] = states
+
+        if elif_ is not None:
+            for comp_, states_ in elif_:
+                self.branches[comp_] = states_
+
+        if else_ is not None:
+            self.branches[ASTStateChoice.DEFAULT] = else_
 
 class ASTModVersion(ASTModKV):
     pass
@@ -256,10 +276,10 @@ class ASTStepFunction(ASTNode):
         self.timeout = timeout
         self.states = states
 
-TERMINAL_STATES = [
+TERMINAL_STATES = (
     ASTStateSuccess,
-    ASTStateFail,
-]
+    ASTStateFail
+)
 
 def link(states, final=None):
     linked = []
@@ -271,27 +291,27 @@ def link(states, final=None):
         linked.append(state)
 
         next_ = states[i+1].name if i+1 < total else final
-        #if hasattr(state, 'next') or hasattr(state, 'end'):
-        #    pass # State has already been linked
-        if type(state) in TERMINAL_STATES:
+        if state.next is not None:
+            pass # State has already been linked
+        elif isinstance(state, TERMINAL_STATES):
             pass
-        elif type(state) == ASTStateChoice:
+        elif isinstance(state, ASTStateChoice):
             if ASTStateChoice.DEFAULT not in state.branches:
                 next__ = next_ # prevent branches from using the new end state
                 if next__ is None:
                     # Choice cannot be terminal state, add a Success state to
                     # terminate on
                     next__ = ASTStateSuccess(state, None)
-                    next__.name += "Next"
+                    next__.name = state.name + "Default"
                     linked.append(next__)
                     next__ = next__.name
                 state.branches[ASTStateChoice.DEFAULT] = next__
 
             # Point the last state of the loop to the conditional, completing the loop construct
-            if type(state) == ASTStateWhile:
+            if isinstance(state, ASTStateWhile):
                 key = list(state.branches.keys())[0]
                 state_ = state.branches[key][-1]
-                if type(state_) not in TERMINAL_STATES:
+                if not isinstance(state_, TERMINAL_STATES):
                     state_.next = state.name
 
         else:
@@ -300,6 +320,9 @@ def link(states, final=None):
 
         if hasattr(state, 'branches'):
             for key in state.branches:
+                states_ = state.branches[key]
+                if isinstance(states_, str):
+                    continue # already linked
                 linked_ = link(state.branches[key], final=next_)
                 # convert the branch from a list of states to the name of the next state
                 # this is done because the branch states are moved to the appropriate
@@ -313,3 +336,4 @@ def check_names(states):
     names = [s.name for s in states]
     # find non unique names in names list
 
+    # find names with invalid characters (space?)
