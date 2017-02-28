@@ -777,7 +777,7 @@ def parse(seq, region=None, account=None, translate=lambda x: x):
                       (n('input') + op_(':') + string >> make(ASTModInput)) |
                       (n('result') + op_(':') + string >> make(ASTModResult)) |
                       (n('output') + op_(':') + string >> make(ASTModOutput)) |
-                      (n('data') + op_(':') + json_text() >> make(ASTModData)) |
+                      (n('data') + op_(':') + block_s + json_text() + block_e >> make(ASTModData)) |
                       retry_block | catch_block)
 
     state_modifiers = state_modifier + many(state_modifier) >> make(ASTModifiers)

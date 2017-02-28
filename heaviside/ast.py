@@ -144,9 +144,14 @@ class ASTState(ASTNode):
             modifiers = None
 
         if comment:
-            name, comment = comment.split('\n', 1)
-            self.name = name.strip()
-            self.comment = '\n'.join([l.strip() for l in comment.split('\n')])
+            tmp = comment.value.split('\n', 1)
+            if len(tmp) == 1:
+                self.name = tmp[0].strip()
+                self.comment = None
+            else:
+                name, comment = tmp
+                self.name = name.strip()
+                self.comment = '\n'.join([l.strip() for l in comment.split('\n')])
         else:
             self.name = 'Line{}'.format(self.lineno)
             self.comment = None
@@ -204,7 +209,13 @@ class ASTStateFail(ASTState):
 
 class ASTStateTask(ASTState):
     state_type = 'Task'
-    valid_modifiers = []
+    valid_modifiers = [ASTModTimeout,
+                       ASTModHeartbeat,
+                       ASTModInput,
+                       ASTModResult,
+                       ASTModOutput,
+                       ASTModRetry,
+                       ASTModCatch]
 
     def __init__(self, state, arn, block):
         super(ASTStateTask, self).__init__(state, block)
@@ -212,7 +223,7 @@ class ASTStateTask(ASTState):
 
 class ASTStateWait(ASTState):
     state_type = 'Wait'
-    valid_modifiers = []
+    valid_modifiers = [ASTModInput, ASTModOutput]
 
     def __init__(self, state, wait_type, wait_val, block):
         super(ASTStateWait, self).__init__(state, block)

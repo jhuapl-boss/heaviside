@@ -80,7 +80,8 @@ class State(dict):
 
         # Generic Modifiers for all States
         if ast.comment is not None:
-            self['Comment'] = ast.comment.value.value
+            # No longer a token, parsed by AST class into name/comment
+            self['Comment'] = ast.comment
 
         if ast.timeout is not None:
             timeout = ast.timeout.value.value
@@ -104,7 +105,7 @@ class State(dict):
             self['OutputPath'] = ast.output.value.value
 
         if ast.data is not None:
-            self['Result'] = ast.data.value.value
+            self['Result'] = ast.data.value
 
         if ast.catch is not None:
             self['Catch'] = []
@@ -149,31 +150,31 @@ class Catch(dict):
     def __init__(self, ast):
         super(Catch, self).__init__()
 
-        errors = ast.errors.value
+        errors = ast.errors
 
         # Support a single string for error type
         # ??? put this transformation in AST
         if type(errors) != list:
             errors = [errors]
 
-        self['ErrorEquals'] = errors
+        self['ErrorEquals'] = [e.value for e in errors]
         self['Next'] = None # TODO Implement
 
         if ast.path is not None:
-            self['ResultPAth'] = ast.path.value
+            self['ResultPath'] = ast.path.value
 
 class Retry(dict):
     def __init__(self, ast):
         super(Retry, self).__init__()
 
-        errors = ast.errors.value
+        errors = ast.errors
 
         # Support a single string for error type
         # ??? put this transformation in AST
         if type(errors) != list:
             errors = [errors]
 
-        self['ErrorEquals'] = errors
+        self['ErrorEquals'] = [e.value for e in errors]
         self['IntervalSeconds'] = ast.interval.value
         self['MaxAttempts'] = ast.max.value
         self['BackoffRate'] = ast.backoff.value
