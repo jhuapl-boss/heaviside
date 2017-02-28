@@ -25,7 +25,7 @@ from .sfn import StepFunction
 from .sfn import Machine
 from .sfn import Retry, Catch, Timestamp
 from .sfn import Lambda, Activity
-from .sfn import ChoiceState, Choice, NotChoice, AndOrChoice
+from .sfn import Choice, NotChoice, AndOrChoice
 from .sfn import ParallelState, Branch
 
 def _link(states, final=None):
@@ -115,44 +115,27 @@ def add_name_comment(state, comment):
 
 # Dictionary of comparison operator and type that resolves
 # to the state machine comparison operator
-COMPARISON = {
-    '==': {
-        str: 'StringEquals',
-        int: 'NumericEquals',
-        float: 'NumericEquals',
-        bool: 'BooleanEquals',
-        Timestamp: 'TimestampEquals',
-    },
-    '<': {
-        str: 'StringLessThan',
-        int: 'NumericLessThan',
-        float: 'NumericLessThan',
-        Timestamp: 'TimestampLessThan',
-    },
-    '>': {
-        str: 'StringGreaterThan',
-        int: 'NumericGreaterThan',
-        float: 'NumericGreaterThan',
-        Timestamp: 'TimestampGreaterThan',
-    },
-    '<=': {
-        str: 'StringLessThanEquals',
-        int: 'NumericLessThanEquals',
-        float: 'NumericLessThanEquals',
-        Timestamp: 'TimestampLessThanEquals',
-    },
-    '>=': {
-        str: 'StringGreaterThanEquals',
-        int: 'NumericGreaterThanEquals',
-        float: 'NumericGreaterThanEquals',
-        Timestamp: 'TimestampGreaterThanEquals',
-    },
-}
 
 def make(cls):
     def make_(args):
         return cls(*args)
     return make_
+
+def debug(x):
+    """Print the current object being parsed"""
+    print(x)
+    return x
+
+def debug_(m):
+    """Print the current object with a prefix
+
+    Args:
+        m (string): Prefix to print before debuged object
+    """
+    def debug__(a):
+        print("{}: {!r}".format(m, a))
+        return a
+    return debug__
 
 def const(value):
     def const_(token):
@@ -207,28 +190,16 @@ def string_to_timestamp(ast):
         ast.value = Timestamp(ast.value)
     except:
         ast.raise_error("'{}' is not a valid timestamp".format(ast.value))
+    return ast
 
+# NOTE: If parsing for both timestamp or string, place timestamp first
+#       Because a timestamp is a string, if string is placed first, the
+#       expression will always return a string value
 timestamp = string >> string_to_timestamp
 
 end = skip(a(Token('ENDMARKER', '')))
 block_s = skip(toktype('INDENT'))
 block_e = skip(toktype('DEDENT'))
-
-def debug(x):
-    """Print the current object being parsed"""
-    print(x)
-    return x
-
-def debug_(m):
-    """Print the current object with a prefix
-
-    Args:
-        m (string): Prefix to print before debuged object
-    """
-    def debug__(a):
-        print("{}: {!r}".format(m, a))
-        return a
-    return debug__
 
 def make_number(n):
     """Parse the given string as an int or float"""
@@ -725,19 +696,29 @@ def json_text():
 
     return json_text
 
-def comparison():
+def comparison_():
     ops = op('==') | op('<') | op('>') | op('<=') | op('>=') | op('!=')
-    op_vals = (boolean|number|string|timestamp)
-    comp_op = string + ops + op_vals >> ASTCompOp
+    op_vals = (boolean|number|timestamp|string)
+    comp_op = string + ops + op_vals >> make(ASTCompOp)
+
+    def multi(func):
+        """For x + many(x) lists, call func only when there are multiple xs"""
+        def multi_(args):
+            x, xs = args
+            if len(xs) == 0:
+                return x
+            return func(args)
+        return multi_
 
     comp_stmt = forward_decl()
     comp_base = forward_decl()
-    comp_base.define((op_('(') + comp_stmt + op_(')')) | comp_op | ((n('not') + comp_base) >> ASTCompNot))
-    comp_and = comp_base + many(n('and') + comp_base) >>  ASTCompAnd
-    comp_or = comp_and + many(n('or') + comp_and) >> ASTCompOr
+    comp_base.define((op_('(') + comp_stmt + op_(')')) | comp_op | ((n('not') + comp_base) >> make(ASTCompNot)))
+    comp_and = comp_base + many(n('and') + comp_base) >>  multi(make(ASTCompAnd))
+    comp_or = comp_and + many(n('or') + comp_and) >> multi(make(ASTCompOr))
     comp_stmt.define(comp_or)
 
     return comp_stmt
+comparison = comparison_()
 
 def parse(seq, region=None, account=None, translate=lambda x: x):
     """Parse the given sequence of tokens into a StateMachine object
@@ -785,6 +766,7 @@ def parse(seq, region=None, account=None, translate=lambda x: x):
     array = op_('[') + maybe(string + many(op_(',') + string)) + op_(']') >> make_array
 
     block = block_s + many(state) + block_e
+    comment_block = block_s + maybe(string) + many(state) + block_e
     retry_block = n('retry') + (array|string) + number + number + number >> make(ASTModRetry)
     catch_block = n('catch') + (array|string) + op_(':') + maybe(string) + block >> make(ASTModCatch)
 
@@ -806,8 +788,12 @@ def parse(seq, region=None, account=None, translate=lambda x: x):
     fail = n('Fail') + op_('(') + string + op_(',') + string + op_(')') + state_block >> make(ASTStateFail)
     task = (n('Lambda') | n('Activity')) + op_('(') + string + op_(')') + state_block >> make(ASTStateTask)
     wait_types = n('seconds') | n('seconds_path') | n('timestamp') | n('timestamp_path')
-    wait = l('Wait') + op_('(') + wait_types + op_('=') + (number|string|timestamp) + op_(')') + state_block >> make(ASTStateWait)
+    wait = n('Wait') + op_('(') + wait_types + op_('=') + (number|timestamp|string) + op_(')') + state_block >> make(ASTStateWait)
     simple_state = pass_ | success | fail | task | wait
+
+    while_ = n('while') + comparison + op_(':') + comment_block >> make(ASTStateWhile)
+
+    choice_state = while_
 
     """
     # Flow Control blocks
@@ -833,7 +819,7 @@ def parse(seq, region=None, account=None, translate=lambda x: x):
     parallel_ = (parallel + transform_block + error_block) >> make_flow_modifiers >> add_modifiers
     #state.define(simple_state_ | choice_state_ | parallel_)
     """
-    state.define(simple_state)
+    state.define(simple_state | choice_state)
 
     #import code
     #code.interact(local=locals())
@@ -846,7 +832,8 @@ def parse(seq, region=None, account=None, translate=lambda x: x):
     try:
         # call run() directly to have better control of error handling
         (tree, _) = machine.run(seq, State())
-        link(tree)
+        #link(tree)
+        tree.states = link(tree.states)
         function = StepFunction(tree)
         # TODO Link / modify the AST to be in the format needed to convert to JSON
         return function

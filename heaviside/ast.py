@@ -62,6 +62,7 @@ class ASTCompNot(ASTNode):
         self.comp = comp
 
 class ASTCompAndOr(ASTNode):
+    op = ''
     def __init__(self, comp, comps):
         super(ASTCompAndOr, self).__init__(comp.token)
         self.comps = [comp]
@@ -69,10 +70,10 @@ class ASTCompAndOr(ASTNode):
             self.comps.append(comp)
 
 class ASTCompAnd(ASTCompAndOr):
-    pass
+    op = 'AND'
 
 class ASTCompOr(ASTCompAndOr):
-    pass
+    op = 'OR'
 
 class ASTModKV(ASTValue):
     def __init__(self, key, value):
@@ -133,6 +134,9 @@ class ASTState(ASTNode):
 
     def __init__(self, state, block):
         super(ASTState, self).__init__(state.token)
+        self.next = None
+        self.end = False
+
         if block:
             comment, modifiers = block
         else:
@@ -179,8 +183,8 @@ class ASTState(ASTNode):
         self.catch = get(ASTModCatch)
 
         if modifiers is not None and len(modifiers.mods) > 0:
-            for type_ in modifiers.mods:
-                modifiers.mods[type_][0].raise_error("Unknown state modifer '{}'".format(type_))
+            type_ = list(modifiers.mods.keys())[0]
+            modifiers.mods[type_][0].raise_error("Unknown state modifer '{}'".format(type_))
 
 class ASTStatePass(ASTState):
     state_type = 'Pass'
@@ -207,13 +211,28 @@ class ASTStateTask(ASTState):
         self.arn = arn
 
 class ASTStateWait(ASTState):
-    state_Type = 'Wait'
+    state_type = 'Wait'
     valid_modifiers = []
 
     def __init__(self, state, wait_type, wait_val, block):
         super(ASTStateWait, self).__init__(state, block)
         self.type = wait_type
         self.val = wait_val
+
+class ASTStateChoice(ASTState):
+    state_type = 'Choice'
+    DEFAULT = None
+
+    def __init__(self, state, comment):
+        super(ASTStateChoice, self).__init__(state, (comment, None))
+        self.branches = {}
+
+class ASTStateWhile(ASTStateChoice):
+    def __init__(self, state, comp, block):
+        comment, states = block
+        super(ASTStateWhile, self).__init__(state, comment)
+
+        self.branches[comp] = states
 
 class ASTModVersion(ASTModKV):
     pass
@@ -226,13 +245,13 @@ class ASTStepFunction(ASTNode):
         self.timeout = timeout
         self.states = states
 
-def link(ast, final=None):
-    linked = []
+TERMINAL_STATES = [
+    ASTStateSuccess,
+    ASTStateFail,
+]
 
-    if type(ast) == ASTStepFunction:
-        states = ast.states
-    else:
-        return ast
+def link(states, final=None):
+    linked = []
 
     total = len(states)
     for i in range(total):
@@ -241,15 +260,43 @@ def link(ast, final=None):
         linked.append(state)
 
         next_ = states[i+1].name if i+1 < total else final
-        if hasattr(state, 'next') or hasattr(state, 'end'):
-            pass # State has already been linked
-        elif type(state) in (ASTStateSuccess, ASTStateFail):
-            pass # Terminal States
+        #if hasattr(state, 'next') or hasattr(state, 'end'):
+        #    pass # State has already been linked
+        if type(state) in TERMINAL_STATES:
+            pass
+        elif type(state) == ASTStateChoice:
+            if ASTStateChoice.DEFAULT not in state.branches:
+                next__ = next_ # prevent branches from using the new end state
+                if next__ is None:
+                    # Choice cannot be terminal state, add a Success state to
+                    # terminate on
+                    next__ = ASTStateSuccess(state, None)
+                    next__.name += "Next"
+                    linked.append(next__)
+                    next__ = next__.name
+                state.branches[ASTStateChoice.DEFAULT] = next__
+
+            # Point the last state of the loop to the conditional, completing the loop construct
+            if type(state) == ASTStateWhile:
+                key = list(state.branches.keys())[0]
+                state_ = state.branches[key][-1]
+                if type(state_) not in TERMINAL_STATES:
+                    state_.next = state.name
+
         else:
             state.end = next_ is None
             state.next = next_
 
-    ast.states = linked
+        if hasattr(state, 'branches'):
+            for key in state.branches:
+                linked_ = link(state.branches[key], final=next_)
+                # convert the branch from a list of states to the name of the next state
+                # this is done because the branch states are moved to the appropriate
+                # location for the step function
+                state.branches[key] = linked_[0].name
+                linked.extend(linked_)
+
+    return linked
 
 def check_names(states):
     names = [s.name for s in states]
