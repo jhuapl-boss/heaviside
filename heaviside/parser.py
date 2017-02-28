@@ -19,16 +19,16 @@ from funcparserlib.parser import NoParseError, State
 
 from .lexer import Token
 from .exceptions import CompileError
+from .ast import *
 
+from .sfn import StepFunction
 from .sfn import Machine
 from .sfn import Retry, Catch, Timestamp
-from .sfn import PassState, SuccessState, FailState
-from .sfn import TaskState, Lambda, Activity
-from .sfn import WaitState
+from .sfn import Lambda, Activity
 from .sfn import ChoiceState, Choice, NotChoice, AndOrChoice
 from .sfn import ParallelState, Branch
 
-def link(states, final=None):
+def _link(states, final=None):
     """Take a list of states and links them together in the order given
 
     Automatically creates a default end state if there is no default and the ChoiceState
@@ -149,18 +149,66 @@ COMPARISON = {
     },
 }
 
-const = lambda x: lambda _: x
-tokval = lambda x: x.value
-tokline = lambda x: x.start[0]
-toklineval = lambda x: (x.start[0], x.value)
-toktype = lambda t: some(lambda x: x.code == t) >> tokval
-op = lambda s: a(Token('OP', s)) >> tokval
-op_ = lambda s: skip(op(s))
-n = lambda s: a(Token('NAME', s)) >> tokval
-n_ = lambda s: skip(n(s))
-l = lambda s: a(Token('NAME', s)) >> tokline
-# extract both line number and token value at the same time
-ln = lambda s: a(Token('NAME', s)) >> toklineval
+def make(cls):
+    def make_(args):
+        return cls(*args)
+    return make_
+
+def const(value):
+    def const_(token):
+        return ASTValue(value, token)
+
+def tok_to_value(token):
+    return ASTValue(token.value, token)
+
+def toktype(code):
+    return some(lambda x: x.code == code) >> tok_to_value
+
+def op(operator):
+    return a(Token('OP', operator)) >> tok_to_value
+
+def op_(operator):
+    return skip(op(operator))
+
+def n(name):
+    return a(Token('NAME', name)) >> tok_to_value
+
+def n_(name):
+    return skip(n(name))
+
+# Primatives
+true = (n('true') | n('True')) >> const(True)
+false = (n('false') | n('False')) >> const(False)
+boolean = true | false
+
+def value_to_number(ast):
+    try:
+        ast.value = int(ast.value)
+    except ValueError:
+        try:
+            ast.value = float(ast.value)
+        except ValueError:
+            ast.raise_error("'{}' is not a valid number".format(ast.value))
+    return ast
+
+number = some(lambda x: x.code == 'NUMBER') >> tok_to_value >> value_to_number
+
+def value_to_string(ast):
+    if ast.value[:3] in ('"""', "'''"):
+        ast.value = ast.value[3:-3]
+    else:
+        ast.value = ast.value[1:-1]
+    return ast
+
+string = some(lambda x: x.code =='STRING') >> tok_to_value >> value_to_string
+
+def string_to_timestamp(ast):
+    try:
+        ast.value = Timestamp(ast.value)
+    except:
+        ast.raise_error("'{}' is not a valid timestamp".format(ast.value))
+
+timestamp = string >> string_to_timestamp
 
 end = skip(a(Token('ENDMARKER', '')))
 block_s = skip(toktype('INDENT'))
@@ -677,6 +725,20 @@ def json_text():
 
     return json_text
 
+def comparison():
+    ops = op('==') | op('<') | op('>') | op('<=') | op('>=') | op('!=')
+    op_vals = (boolean|number|string|timestamp)
+    comp_op = string + ops + op_vals >> ASTCompOp
+
+    comp_stmt = forward_decl()
+    comp_base = forward_decl()
+    comp_base.define((op_('(') + comp_stmt + op_(')')) | comp_op | ((n('not') + comp_base) >> ASTCompNot))
+    comp_and = comp_base + many(n('and') + comp_base) >>  ASTCompAnd
+    comp_or = comp_and + many(n('or') + comp_and) >> ASTCompOr
+    comp_stmt.define(comp_or)
+
+    return comp_stmt
+
 def parse(seq, region=None, account=None, translate=lambda x: x):
     """Parse the given sequence of tokens into a StateMachine object
 
@@ -720,56 +782,38 @@ def parse(seq, region=None, account=None, translate=lambda x: x):
     state = forward_decl()
 
     # Primatives
-    true = (n('true') | n('True')) >> const(True)
-    false = (n('false') | n('False')) >> const(False)
-    boolean = true | false
-    number = toktype('NUMBER') >> make_number
-    string = toktype('STRING') >> make_string
-    ts_str = toktype('STRING') >> make_string >> make_ts_str
     array = op_('[') + maybe(string + many(op_(',') + string)) + op_(']') >> make_array
-    retry = n_('retry') + (array|string) + number + number + number >> make_retry
-    catch = n_('catch') + (array|string) + op_(':') + maybe(string) + block_s + many(state) + block_e >> make_catch
 
-    # Transform / Error statements
-    path = lambda t: maybe(n_(t) + op_(':') + string)
-    mod_transform = path('input') + path('result') + path('output')
-    data = n_('data') + op_(':') + block_s + json_text() + block_e
-    modifier = retry | catch
-    mod_error = maybe(modifier + many(modifier) >> make_array >> make_modifiers)
-    modifiers = (block_s +
-                    maybe(string) +
-                    maybe(n_('timeout') + op_(':') + number) + 
-                    maybe(n_('heartbeat') + op_(':') + number) + 
-                    mod_transform +
-                    maybe(data) +
-                    mod_error +
-                 block_e)
+    block = block_s + many(state) + block_e
+    retry_block = n('retry') + (array|string) + number + number + number >> make(ASTModRetry)
+    catch_block = n('catch') + (array|string) + op_(':') + maybe(string) + block >> make(ASTModCatch)
+
 
     # Simple States
-    pass_ = l('Pass') + op_('(') + op_(')') >> make_pass
-    success = l('Success') + op_('(') + op_(')') >> make_success
-    fail = l('Fail') + op_('(') + string + op_(',') + string + op_(')') >> make_fail
-    task = (ln('Lambda') | ln('Activity')) + op_('(') + string + op_(')') >> make_task
-    wait_types = n('seconds') | n('seconds_path') | n('timestamp') | n('timestamp_path')
-    wait = l('Wait') + op_('(') + wait_types + op_('=') + (number|ts_str) + op_(')') >> make_wait
-    simple_state = pass_ | success | fail | task | wait
-    simple_state_ = simple_state + maybe(modifiers) >> add_modifiers
+    state_modifier = ((n('timeout') + op_(':') + number >> make(ASTModTimeout)) |
+                      (n('heartbeat') + op_(':') + number >> make(ASTModHeartbeat)) |
+                      (n('input') + op_(':') + string >> make(ASTModInput)) |
+                      (n('result') + op_(':') + string >> make(ASTModResult)) |
+                      (n('output') + op_(':') + string >> make(ASTModOutput)) |
+                      (n('data') + op_(':') + json_text() >> make(ASTModData)) |
+                      retry_block | catch_block)
 
+    state_modifiers = state_modifier + many(state_modifier) >> make(ASTModifiers)
+    state_block = maybe(block_s + maybe(string) + maybe(state_modifiers) + block_e)
+
+    pass_ = n('Pass') + op_('(') + op_(')') + state_block >> make(ASTStatePass)
+    success = n('Success') + op_('(') + op_(')') + state_block >> make(ASTStateSuccess)
+    fail = n('Fail') + op_('(') + string + op_(',') + string + op_(')') + state_block >> make(ASTStateFail)
+    task = (n('Lambda') | n('Activity')) + op_('(') + string + op_(')') + state_block >> make(ASTStateTask)
+    wait_types = n('seconds') | n('seconds_path') | n('timestamp') | n('timestamp_path')
+    wait = l('Wait') + op_('(') + wait_types + op_('=') + (number|string|timestamp) + op_(')') + state_block >> make(ASTStateWait)
+    simple_state = pass_ | success | fail | task | wait
+
+    """
     # Flow Control blocks
     transform_block = maybe(n_('transform') + op_(':') + block_s + maybe(mod_transform) + block_e)
     error_block = maybe(n_('error') + op_(':') + block_s + maybe(mod_error) + block_e)
     block = block_s + maybe(string) + many(state) + block_e
-
-    # Comparison logic
-    comp_op = op('==') | op('<') | op('>') | op('<=') | op('>=') | op('!=')
-    comp_simple = string + comp_op + (boolean|number|ts_str) >> make_comp_simple
-
-    comp_stmt = forward_decl()
-    comp_base = forward_decl()
-    comp_base.define((op_('(') + comp_stmt + op_(')')) | comp_simple | ((n_('not') + comp_base) >> make_comp_not))
-    comp_and = comp_base + many(n('and') + comp_base) >>  make_comp_andor
-    comp_or = comp_and + many(n('or') + comp_and) >> make_comp_andor
-    comp_stmt.define(comp_or)
 
     # Control Flow states
     comparison = comp_stmt + op_(':')
@@ -787,24 +831,25 @@ def parse(seq, region=None, account=None, translate=lambda x: x):
     parallel = (l('parallel') + op_(':') + block +
                 many(l('parallel') + op_(':') + block)) >> make_parallel
     parallel_ = (parallel + transform_block + error_block) >> make_flow_modifiers >> add_modifiers
-    state.define(simple_state_ | choice_state_ | parallel_)
+    #state.define(simple_state_ | choice_state_ | parallel_)
+    """
+    state.define(simple_state)
+
+    #import code
+    #code.interact(local=locals())
 
     # State Machine
-    version = maybe(n_('version') + op_(':') + string)
-    timeout = maybe(n_('timeout') + op_(':') + number)
-    machine = maybe(string) + version + timeout + many(state) + end
+    version = maybe(n('version') + op_(':') + string >> make(ASTModVersion))
+    timeout = maybe(n('timeout') + op_(':') + number >> make(ASTModTimeout))
+    machine = maybe(string) + version + timeout + many(state) + end >> make(ASTStepFunction)
 
     try:
         # call run() directly to have better control of error handling
         (tree, _) = machine.run(seq, State())
-        comment, version_, timeout_, states_ = tree
-        states_ = link(states_)
-
-        return Machine(comment = comment,
-                       states = states_,
-                       start = states_[0],
-                       version = version_,
-                       timeout = timeout_)
+        link(tree)
+        function = StepFunction(tree)
+        # TODO Link / modify the AST to be in the format needed to convert to JSON
+        return function
     except NoParseError as e:
         max = e.state.max
         tok = seq[max] if len(seq) > max else Token('EOF', '<EOF>')

@@ -24,6 +24,127 @@ class _StateMachineEncoder(json.JSONEncoder):
             return str(o)
         return super(_StateMachineEncoder, self).default(o)
 
+class StepFunction(dict):
+    def __init__(self, ast):
+        super(StepFunction, self).__init__()
+        self['States'] = OrderedDict()
+        for state in ast.states:
+            self['States'][state.name] = State(state)
+        self['StartAt'] = ast.states[0].name
+
+        if ast.comment is not None:
+            self['Comment'] = ast.comment
+
+        if ast.version is not None:
+            self['Version'] = ast.version
+
+        if ast.timeout is not None:
+            self['TimeoutSeconds'] = ast.timeout
+
+    def definition(self, **kwargs):
+        """Dump the state machine into the JSON format needed by AWS
+
+        Args:
+            kwargs (dict): Arguments passed to json.dumps()
+        """
+        return json.dumps(self, cls=_StateMachineEncoder, **kwargs)
+
+class State(dict):
+    def __init__(self, ast):
+        super(State, self).__init__()
+
+        self['Type'] = ast.state_type
+
+        # Generic Modifiers for all States
+        if ast.comment is not None:
+            self['Comment'] = ast.comment.value.value
+
+        if ast.timeout is not None:
+            timeout = ast.timeout.value.value
+            self['TimeoutSeconds'] = timeout
+        else:
+            timeout = 60 # default
+
+        if ast.heartbeat is not None:
+            heartbeat = ast.heartbeat.value.value
+            if not heartbeat < timeout:
+                ast.heartbeat.raise_error("Heartbeat must be less than timeout (defaults to 60)")
+            self['HeartbeatSeconds'] = heartbeat
+
+        if ast.input is not None:
+            self['InputPath'] = ast.input.value.value
+
+        if ast.result is not None:
+            self['ResultPath'] = ast.result.value.value
+
+        if ast.output is not None:
+            self['OutputPath'] = ast.output.value.value
+
+        if ast.data is not None:
+            self['Result'] = ast.data.value.value
+
+        if ast.catch is not None:
+            self['Catch'] = []
+            for catch in ast.catch:
+                self['Catch'].append(Catch(catch))
+
+        if ast.retry is not None:
+            self['Retry'] = []
+            for retry in ast.retry:
+                self['Retry'].append(Retry(retry))
+
+
+        # State specific arguments
+        if ast.state_type == 'Fail':
+            self['Error'] = ast.error.value.value
+            self['Cause'] = ast.cause.value.value
+
+        if ast.state_type == 'Task':
+            self['Resource'] = ast.arn.value.value
+
+        if ast.state_type == 'Wait':
+            key = ''.join([t.Capitalize() for t in ast.type.value.valuesplit('_')])
+            self[key] = ast.val.value.value
+
+        if ast.next is not None:
+            self['Next'] = ast.next
+
+        if ast.end:
+            self['End'] = ast.end
+
+class Catch(dict):
+    def __init__(self, ast):
+        super(Catch, self).__init__()
+
+        errors = ast.errors.value.value
+
+        # Support a single string for error type
+        # ??? put this transformation in AST
+        if type(errors) != list:
+            errors = [errors]
+
+        self['ErrorEquals'] = errors
+        self['Next'] = None # TODO Implement
+
+        if ast.path is not None:
+            self['ResultPAth'] = ast.path.value.value
+
+class Retry(dict):
+    def __init__(self, ast):
+        super(Retry, self).__init__()
+
+        errors = ast.errors.value.value
+
+        # Support a single string for error type
+        # ??? put this transformation in AST
+        if type(errors) != list:
+            errors = [errors]
+
+        self['ErrorEquals'] = errors
+        self['IntervalSeconds'] = ast.interval.value.value
+        self['MaxAttempts'] = ast.max.value.value
+        self['BackoffRate'] = ast.backoff.value.value
+
 class Branch(dict):
     """A branch of execution. A list of self contains states (only references 
     to states within the list) and a pointer to the first state to start
@@ -98,120 +219,6 @@ class Machine(Branch):
             kwargs (dict): Arguments passed to json.dumps()
         """
         return json.dumps(self, cls=_StateMachineEncoder, **kwargs)
-
-class State(dict):
-    """Base class for all States"""
-
-    def __init__(self, name, type_, next=None, end=None, catches=None, retries=None):
-        """
-        Args:
-            name (string): Name of the state
-            type_ (string): Type of the State
-            next (string|State): Next state to transition to
-            end = (boolean): If this state is a terminal state
-            catches (Catch|[Catch]): Catch(s) for the State
-            retires (Retry|[Retry]): Retry(s) for the State
-        """
-        super(State, self).__init__(Type = type_)
-        self.Name = name
-
-        if next is not None:
-            self['Next'] = str(next)
-
-        if end is not None:
-            self['End'] = bool(end)
-
-        if catches is not None:
-            if type(catches) != list:
-                catches = [catches]
-            self['Catch'] = catches
-
-        if retries is not None:
-            if type(retries) != list:
-                retries = [retries]
-            self['Retry'] = retries
-
-    def addCatch(self, catch):
-        """Add a Catch to this State"""
-        if 'Catch' not in self:
-            self['Catch'] = []
-        self['Catch'].add(catch)
-
-    def addRetry(self, retry):
-        """Add a Retry to this State"""
-        if 'Retry' not in self:
-            self['Retry'] = []
-        self['Retry'].add(retry)
-
-    def __str__(self):
-        return self.Name
-
-class PassState(State):
-    def __init__(self, name, **kwargs):
-        """
-        Args:
-            name (string): Name of the state
-            kwargs (dict): Arguments passed to State constructor
-        """
-        super(PassState , self).__init__(name, 'Pass', **kwargs)
-
-class SuccessState(State):
-    def __init__(self, name, **kwargs):
-        """
-        Args:
-            name (string): Name of the state
-            kwargs (dict): Arguments passed to State constructor
-        """
-        super(SuccessState, self).__init__(name, 'Succeed', **kwargs)
-
-class FailState(State):
-    def __init__(self, name, error, cause, **kwargs):
-        """
-        Args:
-            name (string): Name of the state
-            error (string): Failure error name
-            cause (string): Failure error cause
-            kwargs (dict): Arguments passed to State constructor
-        """
-        super(FailState, self).__init__(name, 'Fail', **kwargs)
-        self['Error'] = error
-        self['Cause'] = cause
-
-class TaskState(State):
-    def __init__(self, name, resource, **kwargs):
-        """
-        Args:
-            name (string): Name of the state
-            resource (string): ARN of AWS resource to invoke
-            kwargs (dict): Arguments passed to State constructor
-        """
-        super(TaskState, self).__init__(name, 'Task', **kwargs)
-        self['Resource'] = resource
-
-class WaitState(State):
-    def __init__(self, name, seconds=None, timestamp=None, timestamp_path=None, seconds_path=None, **kwargs):
-        """
-        Args:
-            name (string): Name of the state
-            seconds (int): Number of seconds to wait
-            timestamp (string|Timestamp): Timestamp to wait until
-            timestamp_path (string): JsonPath to location of timestamp
-            seconds_path (string): JsonPath to location of seconds
-            kwargs (dict): Arguments passed to State constructor
-        """
-        super(WaitState, self).__init__(name, 'Wait', **kwargs)
-
-        if seconds is not None:
-            self['Seconds'] = int(seconds)
-
-        if timestamp is not None:
-            self['Timestamp'] = str(timestamp)
-
-        if timestamp_path is not None:
-            self['TimestampPath'] = str(timestamp_path)
-
-        if seconds_path is not None:
-            self['SecondsPath'] = str(seconds_path)
 
 class ParallelState(State):
     def __init__(self, name, branches=None, **kwargs):
@@ -335,44 +342,6 @@ class AndOrChoice(dict):
     def __repr__(self):
         vals = map(repr, self[self.op])
         return "(" + (" {} ".format(self.op.lower())).join(vals) + ")"
-
-class Retry(dict):
-    """A retry statement that reruns a state if the given error(s) are encountered"""
-
-    def __init__(self, errors, interval, max, backoff):
-        """
-        Args:
-            errors (string|list): Error(s) to match against
-            interval (int): Initial delay (seconds) before retrying state
-            max (int): Max number to retries to attempt
-            backoff (int|float): Backoff rate applied to interval after each retry
-        """
-        if type(errors) != list:
-            errors = [errors]
-
-        super(Retry, self).__init__(ErrorEquals = errors,
-                         IntervalSeconds = int(interval),
-                         MaxAttempts = int(max),
-                         BackoffRate = float(backoff))
-
-class Catch(dict):
-    """A catch statement that executes a state when the given error(s) are encountered"""
-
-    def __init__(self, errors, next, results=None):
-        """
-        Args:
-            errors (string|list): Error(s) to match against
-            next (string|State): State to execute if a matched error is encountered
-            results (string|None): ResultPath for error information
-        """
-        if type(errors) != list:
-            errors = [errors]
-
-        super(Catch, self).__init__(ErrorEquals = errors,
-                         Next = str(next))
-
-        if results:
-            self['ResultPath'] = results
 
 def _resolve(actual, defaults):
     """Break the actual arn apart and insert the defaults for the
