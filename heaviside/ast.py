@@ -64,7 +64,7 @@ class ASTCompNot(ASTNode):
         self.comp = comp
 
 class ASTCompAndOr(ASTNode):
-    op = ''
+    op = None
     def __init__(self, comp, comps):
         super(ASTCompAndOr, self).__init__(comp.token)
         self.comps = [comp]
@@ -335,7 +335,7 @@ def link_branch(branch):
         branch.states = link(branch.states)
     else:
         branch.raise_error("Trying to link non-branch state")
-    return branach
+    return branch
 
 def link(states, final=None):
     linked = []

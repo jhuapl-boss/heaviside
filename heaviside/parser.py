@@ -21,95 +21,7 @@ from .lexer import Token
 from .exceptions import CompileError
 from .ast import *
 
-from .sfn import StepFunction
-
-def _link(states, final=None):
-    """Take a list of states and links them together in the order given
-
-    Automatically creates a default end state if there is no default and the ChoiceState
-    terminates.
-
-    States for ChoiceState branches (and catch blocks) are processed and added to the list
-    of returned states.
-
-    Convention: If the State has an attribute 'branches' is should be a list of list of state.
-                Each list of state will be linked together and then appended to the list of
-                returned States.
-
-    Args:
-        states (list): List of States to link together
-        final (string|State|None): Name of next state to link the final state to
-                                   None to terminate execution with the final state
-
-    Returns:
-        list: List of linked States
-    """
-    linked = []
-    for i in range(len(states)):
-        state = states[i]
-
-        # DP TODO: check to see if the given state name already exists
-        linked.append(state)
-
-        next_ = states[i+1] if i+1 < len(states) else final
-
-        # The first three conditions are checking to see if the state needs
-        # to be linked with the next state or if it is already linked / terminates
-        if 'Next' in state:
-            pass # process branches, if they exist
-        elif 'End' in state:
-            pass # process branches, if they exist
-        elif type(state) in (SuccessState, FailState): #terminal states
-            pass
-        elif type(state) == ChoiceState:
-            if 'Default' not in state:
-                next__ = next_ # prevent branches from using the new end state (just use End=True)
-                if next__ is None:
-                    next__ = SuccessState(str(state) + "Next")
-                    linked.append(next__)
-                state['Default'] = str(next__)
-        else:
-            if next_ is None:
-                state['End'] = True
-            else:
-                state['Next'] = str(next_)
-
-        if hasattr(state, 'branches'):
-            for branch in state.branches:
-                linked.extend(link(branch, final=next_))
-
-    return linked
-
-def make_name(line):
-    """Take the line number of a state and return the state name"""
-    return "Line{}".format(line)
-
-def add_name_comment(state, comment):
-    """Take a doc string comment and set the state name and comment
-
-    Args:
-        state (State): State to update the name of and add the comment to
-        comment (None|tuple): None or tuple of (name, comment)
-                              If name is an empty string no name change is performed
-    """
-    if comment:
-        name, comment = comment.split('\n', 1)
-
-        name = name.strip()
-        # DP TODO: Remove indent from each line of the comment, preserving internal indent
-        comment = '\n'.join([l.strip() for l in comment.split('\n')])
-
-        if  len(name) > 0:
-            if type(state) == ChoiceState:
-                # update while loops to use the new name
-                if state.branches[0][-1]['Next'] == state.Name:
-                    state.branches[0][-1]['Next'] = name
-            state.Name = name
-
-        state['Comment'] = comment
-
-# Dictionary of comparison operator and type that resolves
-# to the state machine comparison operator
+from .sfn import StepFunction, Timestamp
 
 def make(cls):
     def make_(args):
@@ -170,7 +82,7 @@ def value_to_number(ast):
             ast.raise_error("'{}' is not a valid number".format(ast.value))
     return ast
 
-number = some(lambda x: x.code == 'NUMBER') >> tok_to_value >> value_to_number
+number = toktype('NUMBER') >> tok_to_value >> value_to_number
 
 def value_to_string(ast):
     if ast.value[:3] in ('"""', "'''"):
@@ -179,20 +91,17 @@ def value_to_string(ast):
         ast.value = ast.value[1:-1]
     return ast
 
-# DP ???: toktype('STRING') instead of some(lambda x: ...) ??
-string = some(lambda x: x.code =='STRING') >> tok_to_value >> value_to_string
+string = toktype('STRING') >> tok_to_value >> value_to_string
 
 def string_to_timestamp(ast):
     try:
         ast.value = Timestamp(ast.value)
     except:
-        ast.raise_error("'{}' is not a valid timestamp".format(ast.value))
+        pass
+        #ast.raise_error("'{}' is not a valid timestamp".format(ast.value))
     return ast
 
-# NOTE: If parsing for both timestamp or string, place timestamp first
-#       Because a timestamp is a string, if string is placed first, the
-#       expression will always return a string value
-timestamp = string >> string_to_timestamp
+timestamp_or_string = string >> string_to_timestamp
 
 end = skip(a(Token('ENDMARKER', '')))
 block_s = skip(toktype('INDENT'))
@@ -224,10 +133,12 @@ def json_text():
     """Returns the parser for Json formatted data"""
     # Taken from https://github.com/vlasovskikh/funcparserlib/blob/master/funcparserlib/tests/json.py
     # and modified slightly
-    null = (n('null') | n('Null')) >> const(None)
+    unwrap = lambda x: x.value
+
+    null = (n('null') | n('Null')) >> const(None) >> unwrap
 
     value = forward_decl()
-    member = string + op_(u':') + value >> tuple
+    member = (string >> unwrap) + op_(u':') + value >> tuple
     object = (
         op_(u'{') +
         maybe(member + many(op_(u',') + member) + maybe(op_(','))) +
@@ -241,19 +152,19 @@ def json_text():
 
     value.define(
         null
-        | true
-        | false
+        | (true >> unwrap)
+        | (false >> unwrap)
         | object
         | array
-        | number
-        | string)
+        | (number >> unwrap)
+        | (string >> unwrap))
     json_text = object | array
 
     return json_text
 
 def comparison_():
     ops = op('==') | op('<') | op('>') | op('<=') | op('>=') | op('!=')
-    op_vals = (boolean|number|string|timestamp)
+    op_vals = (boolean|number|timestamp_or_string)
     comp_op = string + ops + op_vals >> make(ASTCompOp)
 
     def multi(func):
@@ -316,7 +227,7 @@ def parse(seq, region=None, account=None, translate=lambda x: x):
     fail = n('Fail') + op_('(') + string + op_(',') + string + op_(')') + state_block >> make(ASTStateFail)
     task = (n('Lambda') | n('Activity')) + op_('(') + string + op_(')') + state_block >> make(ASTStateTask)
     wait_types = n('seconds') | n('seconds_path') | n('timestamp') | n('timestamp_path')
-    wait = n('Wait') + op_('(') + wait_types + op_('=') + (number|string|timestamp|string) + op_(')') + state_block >> make(ASTStateWait)
+    wait = n('Wait') + op_('(') + wait_types + op_('=') + (number|timestamp_or_string) + op_(')') + state_block >> make(ASTStateWait)
     simple_state = pass_ | success | fail | task | wait
 
     # Flow Control States
@@ -330,7 +241,7 @@ def parse(seq, region=None, account=None, translate=lambda x: x):
     if_else = (n('if') + comparison + op_(':') + comment_block +
                many(n_('elif') + comparison + op_(':') + block) +
                maybe(n_('else') + op_(':') + block) + transform_block) >> make(ASTStateIfElse)
-    switch_case = n('case') + (boolean|number|timestamp|string) + op_(':') + block
+    switch_case = n('case') + (boolean|number|timestamp_or_string) + op_(':') + block
     switch = (n('switch') + string + op_(':') +
               block_s + maybe(string) + many(switch_case) +
               maybe(n('default') + op_(':') + block) +

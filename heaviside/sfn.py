@@ -17,7 +17,7 @@ from collections import OrderedDict
 
 import iso8601 # parser for timestamp format
 
-from .ast import ASTStateChoice, ASTCompOp, ASTCompNot, ASTCompAnd, ASTCompOr
+from .ast import ASTStateChoice, ASTCompOp, ASTCompNot, ASTCompAndOr
 
 class Timestamp(object):
     """Wrapper around a timestamp string.
@@ -64,13 +64,13 @@ class StepFunction(Branch):
         super(StepFunction, self).__init__(ast)
 
         if ast.comment is not None:
-            self['Comment'] = ast.comment
+            self['Comment'] = ast.comment.value
 
         if ast.version is not None:
-            self['Version'] = ast.version
+            self['Version'] = ast.version.value.value
 
         if ast.timeout is not None:
-            self['TimeoutSeconds'] = ast.timeout
+            self['TimeoutSeconds'] = ast.timeout.value.value
 
     def definition(self, **kwargs):
         """Dump the state machine into the JSON format needed by AWS
