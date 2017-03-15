@@ -129,6 +129,12 @@ class ASTModifiers(ASTNode): #??? Subclass dict as well?
             self.mods[t] = []
         self.mods[t].append(mod)
 
+    def update(self, other):
+        for key in other.mods.keys():
+            if key not in self.mods:
+                self.mods[key] = []
+            self.mods[key].extend(other.mods[key])
+
 class ASTState(ASTNode):
     state_type = ''
     valid_modifiers = []
@@ -265,6 +271,49 @@ class ASTStateIfElse(ASTStateChoice):
         if else_ is not None:
             self.branches[ASTStateChoice.DEFAULT] = else_
 
+class ASTStateSwitch(ASTStateChoice):
+    def __init__(self, state, var, comment, cases, default, transform):
+        super(ASTStateSwitch, self).__init__(state, comment, transform)
+
+        class EQToken(object):
+            def __init__(self):
+                self.value = '=='
+        eq = EQToken()
+
+        for case, val, states in cases:
+            comp = ASTCompOp(var, eq, val)
+            self.branches[comp] = states
+
+        if default is not None:
+            default, states = default
+            self.branches[ASTStateChoice.DEFAULT] = states
+
+class ASTParallelBranch(ASTNode):
+    def __init__(self, parallel, states):
+        super(ASTParallelBranch, self).__init__(parallel.token)
+        self.states = states
+
+class ASTStateParallel(ASTState):
+    state_type = 'Parallel'
+    valid_modifiers = [ASTModInput,
+                       ASTModResult,
+                       ASTModOutput,
+                       ASTModRetry,
+                       ASTModCatch]
+
+    def __init__(self, state, block, parallels, transform, error):
+        comment, states = block
+        if transform is not None and error is not None:
+            transform.update(error)
+        elif transform is None and error is not None:
+            transform = error
+        super(ASTStateParallel, self).__init__(state, (comment, transform))
+
+        self.branches = [ASTParallelBranch(state, states)]
+        if parallels is not None:
+            for parallel, states_ in parallels:
+                self.branches.append(ASTParallelBranch(parallel, states_))
+
 class ASTModVersion(ASTModKV):
     pass
 
@@ -280,6 +329,13 @@ TERMINAL_STATES = (
     ASTStateSuccess,
     ASTStateFail
 )
+
+def link_branch(branch):
+    if hasattr(branch, 'states'):
+        branch.states = link(branch.states)
+    else:
+        branch.raise_error("Trying to link non-branch state")
+    return branach
 
 def link(states, final=None):
     linked = []
@@ -318,7 +374,8 @@ def link(states, final=None):
             state.end = next_ is None
             state.next = next_
 
-        if hasattr(state, 'branches'):
+        # Different states use the branches variable in different ways
+        if isinstance(state, ASTStateChoice):
             for key in state.branches:
                 states_ = state.branches[key]
                 if isinstance(states_, str):
@@ -329,6 +386,9 @@ def link(states, final=None):
                 # location for the step function
                 state.branches[key] = linked_[0].name
                 linked.extend(linked_)
+        elif isinstance(state, ASTStateParallel):
+            for branch in state.branches:
+                link_branch(branch)
 
     return linked
 
@@ -337,3 +397,4 @@ def check_names(states):
     # find non unique names in names list
 
     # find names with invalid characters (space?)
+

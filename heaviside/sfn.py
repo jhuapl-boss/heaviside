@@ -47,13 +47,21 @@ class _StateMachineEncoder(json.JSONEncoder):
             return str(o)
         return super(_StateMachineEncoder, self).default(o)
 
-class StepFunction(dict):
+class Branch(dict):
     def __init__(self, ast):
-        super(StepFunction, self).__init__()
+        super(Branch, self).__init__()
+
+        # Makes states be dumped in the same order they were added
+        # making it easier to read the output and match it to the input
         self['States'] = OrderedDict()
         for state in ast.states:
             self['States'][state.name] = State(state)
+
         self['StartAt'] = ast.states[0].name
+
+class StepFunction(Branch):
+    def __init__(self, ast):
+        super(StepFunction, self).__init__(ast)
 
         if ast.comment is not None:
             self['Comment'] = ast.comment
@@ -139,6 +147,11 @@ class State(dict):
             self['Choices'] = []
             for comp in ast.branches:
                 self['Choices'].append(Choice(comp, ast.branches[comp]))
+
+        if ast.state_type == 'Parallel':
+            self['Branches'] = []
+            for branch in ast.branches:
+                self['Branches'].append(Branch(branch))
 
         if ast.next is not None:
             self['Next'] = ast.next
@@ -289,103 +302,6 @@ class AndOrChoice(dict):
         vals = map(repr, self[self.op])
         return "(" + (" {} ".format(self.op.lower())).join(vals) + ")"
 
-
-
-class Branch(dict):
-    """A branch of execution. A list of self contains states (only references 
-    to states within the list) and a pointer to the first state to start
-    execution on
-    """
-
-    def __init__(self, states=None, start=None):
-        """
-        Args:
-            states (None|list|dict): No States, a list of States, or dict of
-                                     States for the branch to execute
-            start (None|State|string): The first State to start execution on
-        """
-        super(Branch, self).__init__()
-        # Makes states be dumped in the same order they were added
-        # making it easier to read the output and match it to the input
-        self['States'] = OrderedDict() 
-
-        if type(states) == list:
-            for state in states:
-                self.addState(state)
-        elif type(states) == dict:
-            self['States'].update(states)
-
-        if start is not None:
-            self.setStart(start)
-
-    def setStart(self, state):
-        """Set the start State
-
-        Args:
-            state (State|string): State / Name of State to start execution on
-        """
-        self['StartAt'] = str(state)
-
-    def addState(self, state):
-        """Add a State to the list of States available to execute
-
-        Args:
-            state (State): State to add
-        """
-        self['States'][state.Name] = state
-
-
-class Machine(Branch):
-    """State Machine, consisting of a single branch of execution"""
-
-    def __init__(self, comment=None, states=None, start=None, version=None, timeout=None):
-        """
-        Args:
-            comment (string): State machine comment
-            state (list): List of States to execute
-            start (State|string): State to start execution on
-            version (string): AWS State MAchine Language version used
-            timeout (int): Overall state machine timeout
-        """
-        super(Machine, self).__init__(states, start)
-
-        if comment is not None:
-            self['Comment'] = comment
-
-        if version is not None:
-            self['Version'] = version
-
-        if timeout is not None:
-            self['TimeoutSeconds'] = timeout
-
-    def definition(self, **kwargs):
-        """Dump the state machine into the JSON format needed by AWS
-
-        Args:
-            kwargs (dict): Arguments passed to json.dumps()
-        """
-        return json.dumps(self, cls=_StateMachineEncoder, **kwargs)
-
-class ParallelState(State):
-    def __init__(self, name, branches=None, **kwargs):
-        """
-        Args:
-            name (string): Name of the state
-            branches (list): List of List of States to be executed
-            kwargs (dict): Arguments passed to State constructor
-        """
-        super(ParallelState, self).__init__(name, 'Parallel', **kwargs)
-
-        if branches is None:
-            branches = []
-        self['Branches'] = branches
-
-    def addBranch(self, branch):
-        """Add another branch of execution
-        
-        Args:
-            branch (list): List of States to execute"""
-        self['Branches'].add(branch)
 
 def _resolve(actual, defaults):
     """Break the actual arn apart and insert the defaults for the

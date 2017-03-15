@@ -22,11 +22,6 @@ from .exceptions import CompileError
 from .ast import *
 
 from .sfn import StepFunction
-from .sfn import Machine
-from .sfn import Retry, Catch, Timestamp
-from .sfn import Lambda, Activity
-from .sfn import Choice, NotChoice, AndOrChoice
-from .sfn import ParallelState, Branch
 
 def _link(states, final=None):
     """Take a list of states and links them together in the order given
@@ -184,6 +179,7 @@ def value_to_string(ast):
         ast.value = ast.value[1:-1]
     return ast
 
+# DP ???: toktype('STRING') instead of some(lambda x: ...) ??
 string = some(lambda x: x.code =='STRING') >> tok_to_value >> value_to_string
 
 def string_to_timestamp(ast):
@@ -201,38 +197,6 @@ timestamp = string >> string_to_timestamp
 end = skip(a(Token('ENDMARKER', '')))
 block_s = skip(toktype('INDENT'))
 block_e = skip(toktype('DEDENT'))
-
-def make_number(n):
-    """Parse the given string as an int or float"""
-    try:
-        return int(n)
-    except ValueError:
-        return float(n)
-
-def make_string(n):
-    """Remove a strings quotes and return the raw string
-
-    NOTE: escaping is done / undone
-    """
-    if n[:3] in ('"""', "'''"):
-        s = n[3:-3]
-    else:
-        s = n[1:-1]
-    return s
-
-def make_ts_str(s):
-    """Check to see if the given string is a Timestamp
-
-    Returns:
-        Timestamp|string: Timestamp if the string is a valid timestamp
-                          String if the the string is not a timestamp
-    """
-    try:
-        # A timestamp is also a valid string, so it has to be manually parsed
-        # instead of using the lexer
-        return Timestamp(s)
-    except:
-        return s
 
 def make_array(n):
     """Take the results of parsing an array and return an array
@@ -253,424 +217,14 @@ def make_object(n):
     """
     return dict(make_array(n))
 
-# =============
-# Simple States
-# =============
-def make_pass(args):
-    """Make a PassState
-
-    Args:
-        args (int): Line number
-    """
-    line = args
-
-    name = make_name(line)
-    state = PassState(name)
-    state.line = line
-    return state
-
-def make_success(args):
-    """Make a SuccessState
-
-    Args:
-        args (int): Line number
-    """
-    line = args
-
-    name = make_name(line)
-    state = SuccessState(name)
-    state.line = line
-    return state
-
-def make_fail(args):
-    """Make a FailState
-
-    Args:
-        args (tuple): (line number:int, error:string, cause:string)
-    """
-    line, error, cause = args
-
-    name = make_name(line)
-    state = FailState(name, error, cause)
-    state.line = line
-    return state
-
-# make_task moved into parse function to have access to parse arguments
-
-def make_wait(args):
-    """Make a WaitState
-
-    Args:
-        args (tuple): (line number:int, key:string, value:string|int|Timestamp)
-    """
-    line, key, value = args
-
-    if key == 'timestamp' and type(value) != Timestamp:
-        raise CompileError(line, 0, '', "Invalid timestamp '{}'".format(value))
-
-    name = make_name(line)
-    kwargs = {key: value}
-
-    state = WaitState(name, **kwargs)
-    state.line = line
-    return state
-
-# ============
-# Flow Control
-# ============
-def make_comp_simple(args):
-    """Make a Choice statement for a ChoiceState
-
-    Args:
-        args (tuple): (var:string, op:string, val:bool|string|int|Timestamp)
-    """
-    var, op, val = args
-    
-    try:
-        if op == '!=':
-            op = COMPARISON['=='][type(val)]
-            choice = Choice(var, op, val)
-            return NotChoice(choice)
-        else:
-            op = COMPARISON[op][type(val)]
-            return Choice(var, op, val)
-    except KeyError:
-        msg = "Cannot make '{}' comparison with type '{}'".format(op, type(val).__name__)
-        # TODO figure out location information
-        raise CompileError(0, 0, '', msg)
-
-def make_comp_not(args):
-    """Wrap the given Choice in a NotChoice"""
-    return NotChoice(args)
-
-def make_comp_andor(args):
-    """Process a list of and / or combinding Choices into an AndOrChoice
-
-    Args:
-        args (tuple): (Choice, [('and'|'or', Choice)])
-                      The 'and' or 'or' operator should be
-                      the same for all tuples in the list
-    """
-    x, xs = args
-
-    if len(xs) == 0:
-        return x
-
-    vals = [x]
-    op = ''
-    for op_, val in xs:
-        op = op_
-        vals.append(val)
-
-    return AndOrChoice(op.capitalize(), vals)
-
-def make_while(args):
-    """Make a while loop into a ChoiceState
-
-    Args
-        args (tuple): (line:int, choice:Choice, (comment:string, steps:[State]))
-                      choice: The loop conditional
-                      steps: The loop body
-    """
-    line, choice, (comment, steps) = args
-    name = make_name(line)
-
-    choice['Next'] = str(steps[0])
-    choices = ChoiceState(name, [choice])
-    choices.line = line
-    choices.branches = [steps]
-    steps[-1]['Next'] = name # Create the loop
-    add_name_comment(choices, comment)
-    return choices
-
-def make_if_else(args):
-    """Make an if/elif/else into a ChoiceState
-
-    Args
-        args (tuple): (line:int, choice:Choice, (comment:string, steps:[State]), elif, else)
-                      choice: The loop conditional
-                      steps: The loop body
-                      elif [(line:int, choice:Choice, (comment:string, steps:[State]))] The elif blocks (same as the if block)
-                      else (line:int, (comment:string, steps:[State])) The else block
-    """
-    line, choice, (comment, steps), elif_, else_ = args
-
-    branches = []
-    choices = []
-
-    choice['Next'] = str(steps[0])
-    branches.append(steps)
-    choices.append(choice)
-
-    for line_, choice_, (_, steps_) in elif_:
-        choice_['Next'] = str(steps_[0])
-        branches.append(steps_)
-        choices.append(choice_)
-
-    if else_:
-        line_, (_, steps_) = else_
-        branches.append(steps_)
-        default = str(steps_[0])
-    else:
-        default = None
-
-    name = make_name(line)
-    state = ChoiceState(name, choices, default)
-    state.line = line
-    state.branches = branches
-    add_name_comment(state, comment)
-    return state
-
-def make_switch(args):
-    """Make a switch statement into a ChoiceState
-
-    Args
-        args (tuple): (line:int,
-                       var:string,
-                       comment:string,
-                       (val:int|float|string|ts, (comment:string, steps:[State])),
-                       (comment:string, steps:[State]))
-
-                      var: JsonPath of the variable to use in the case comparisons
-                      val: Value to compare the variable against
-                      steps: The case / default body
-    """
-    line, var, comment, cases, default = args
-
-    choices = []
-    branches = []
-
-    for val, (_, steps_) in cases:
-        choice = make_comp_simple((var, '==', val))
-        choice['Next'] = str(steps_[0])
-        branches.append(steps_)
-        choices.append(choice)
-
-    if default:
-        (_, steps_) = default
-        branches.append(steps_)
-        default = str(steps_[0])
-
-    name = make_name(line)
-    state = ChoiceState(name, choices, default)
-    state.line = line
-    state.branches = branches
-    add_name_comment(state, comment)
-    return state
-
-def make_parallel(args):
-    """Make a ParallelState
-
-    Args:
-        args (tuple): (line:int, (comment:string, steps:[State]), parallels)
-                      steps: The parallel body
-                      parallels [(line:int, (comment:string, steps:[State]))] Additional parallel blocks
-    """
-    line, (comment, steps), parallels = args
-
-    branches = []
-
-    #DP ???: calling link in the middle of parsing. should this be called after all states are parsed??
-    branches.append(Branch(link(steps), str(steps[0])))
-
-    for line_, (_, steps_) in parallels:
-        branches.append(Branch(link(steps_), str(steps_[0])))
-
-    name = make_name(line)
-    state = ParallelState(name, branches)
-    state.line = line
-    add_name_comment(state, comment)
-    return state
-
-def make_retry(args):
-    """Make a Retry statement
-
-    Args:
-        args (tuple): (errors:string|list, interval:int, max:int, backoff:int|float)
-                      errors: Single error or list of errors to catch
-                              If an empty list, replaced with ['States.ALL']
-                      interval: retry interval (seconds) for first retry
-                      max: total number of retry attempts
-                      backoff: multiplier applied to interval for each retry attempt
-    """
-    errors, interval, max_, backoff = args
-
-    if errors == []:
-        errors = ['States.ALL'] # match all errors if none is given
-    return Retry(errors, interval, max_, backoff)
-
-def make_catch(args):
-    """Make a Catch statement
-
-    Args:
-        args (tuple): (errors:string|list, results:None|string, steps:[State])
-                      errors: Single error or list of errors to catch
-                              If an empty list, replaced with ['States.ALL']
-                      results: ResultPath for where to place error information
-                               in the input for the next state
-                      steps: The catch body
-    """
-    errors, result_path, steps = args
-
-    next_ = str(steps[0])
-
-    if errors == []:
-        errors = ['States.ALL'] # match all errors if none is given
-    catch = Catch(errors, next_, result_path)
-    catch.branches = [steps]
-    return catch
-
-def make_modifiers(args):
-    """Take a mixed list of Catch and Retry statements and return a tuple of lists
-
-    Args:
-        args (list): List of Retry and Catch objects
-
-    Returns:
-        (retry, catch): retry is None or a list of Retry objects
-                        catch is None or a list of Catch objects
-    """
-    retry = []
-    catch = []
-    for modifier in args:
-        if type(modifier) == Retry:
-            retry.append(modifier)
-        elif type(modifier) == Catch:
-            catch.append(modifier)
-        else:
-            raise Exception("Unknown modifier type: " + type(modifier).__name__)
-    if retry == []:
-        retry = None
-    if catch == []:
-        catch = None
-    return (retry, catch)
-
-def make_flow_modifiers(args):
-    """Prepare flow control statements to be passed to add_modifiers
-
-    Args:
-        args (tuple): (state:State, transform:, errors:)
-                      state: State to add the transform and error modifiers to
-                      transform:
-                      errors: An optional block
-    Returns:
-        tuple: Tuple formated for input to add_modifiers()
-    """
-    try:
-        state, transform, errors = args
-    except:
-        state, transform = args
-        errors = None
-
-    return (state, (None, None, None, transform, None, errors))
-
-def add_modifiers(args):
-    """Add modifiers to a state
-
-    Note all modifiers can be applied to all states. If a modifier is given
-    that cannot be applied to the given state, and exception is raised.
-
-    Args:
-        args (tuple): (state:State,
-                       (
-                            comment:string,
-                            timeout:int
-                            heartbeat:int,
-                            (
-                                input:string,
-                                 result:string,
-                                 output:string
-                            ),
-                            data:dict,
-                            (
-                                retries:[Retry],
-                                catches:[Catch]
-                            )
-                       )
-                      )
-                      timeout: task timeout
-                      heartbeat: task heartbeat
-                      input: input JsonPath selector
-                      result: result JsonPath selector
-                      output: output JsonPath selector
-                      data: PassState Json results
-                      retries: list of Retries
-                      catches: list of Catches
-    """
-    state, args = args
-
-    type_ = type(state)
-
-    # DP TODO: Create AST so that CompileError context can be filled in
-    error = lambda m: CompileError(state.line, 0, '', m)
-
-    if args:
-        comment, timeout, heartbeat, transform, data, modifiers = args
-
-        add_name_comment(state, comment)
-
-        if timeout:
-            if type_ not in (TaskState,):
-                raise error("Invalid modifier 'timeout'")
-            state['TmeoutSeconds'] = timeout
-        else:
-            timeout = 60
-
-        if heartbeat:
-            if type_ not in (TaskState,):
-                raise error("Invalid modifier 'heartbeat'")
-            if not heartbeat < timeout:
-                raise error("Modifier 'heartbeat' must be less than 'timeout'")
-            state['HeartbeatSeconds'] = heartbeat
-
-        if transform:
-            input_path, result_path, output_path = transform
-
-            if input_path:
-                if type_ in (FailState,):
-                    raise error("Invalid modifier 'input'")
-                state['InputPath'] = input_path
-
-            if result_path:
-                if type_ in (FailState, SuccessState, WaitState):
-                    raise error("Invalid modifier 'result'")
-                state['ResultPath'] = result_path
-
-            if output_path:
-                if type_ in (FailState,):
-                    raise error("Invalid modifier 'output'")
-                state['OutputPath'] = output_path
-
-        if data:
-            if type_ != PassState:
-                raise error("Invalid modifier 'data'")
-            state['Result'] = data
-
-        if modifiers:
-            retries, catches = modifiers
-            if retries:
-                if type_ not in (TaskState, ParallelState):
-                    raise error("Invalid modifier 'retry'")
-                state['Retry'] = retries
-            if catches:
-                if type_ not in (TaskState, ParallelState):
-                    raise error("Invalid modifier 'catch'")
-                state['Catch'] = catches
-                state.branches = []
-                for catch in catches:
-                    state.branches.extend(catch.branches)
-
-    return state
-
+#=============
+# Parser Rules
+#=============
 def json_text():
     """Returns the parser for Json formatted data"""
     # Taken from https://github.com/vlasovskikh/funcparserlib/blob/master/funcparserlib/tests/json.py
     # and modified slightly
     null = (n('null') | n('Null')) >> const(None)
-    true = (n('true') | n('True')) >> const(True)
-    false = (n('false') | n('False')) >> const(False)
-    number = toktype('NUMBER') >> make_number
-    string = toktype('STRING') >> make_string
 
     value = forward_decl()
     member = string + op_(u':') + value >> tuple
@@ -734,33 +288,6 @@ def parse(seq, region=None, account=None, translate=lambda x: x):
     Returns
         sfn.StateMachine: StateMachine object
     """
-    def make_task(args):
-        """Make a TaskState
-
-        Args:
-            args (tuple): ((line number:int, type:string), function:string)
-                          type: 'Lambda' or 'Activity'
-                          function: Full or partial ARN of the Lambda or Activity
-        """
-        (line, type_), func = args
-
-        func = translate(func)
-
-        name = make_name(line)
-        try:
-            if type_ == "Lambda":
-                task = Lambda(func, region, account)
-            elif type_ == "Activity":
-                task = Activity(func, region, account)
-            else:
-                raise Exception("Unsuported task type '{}'".format(type_))
-        except Exception as e:
-            raise CompileError(line, 0, '', str(e))
-
-        state = TaskState(name, task)
-        state.line = line
-        return state
-
     state = forward_decl()
 
     # Primatives
@@ -803,34 +330,20 @@ def parse(seq, region=None, account=None, translate=lambda x: x):
     if_else = (n('if') + comparison + op_(':') + comment_block +
                many(n_('elif') + comparison + op_(':') + block) +
                maybe(n_('else') + op_(':') + block) + transform_block) >> make(ASTStateIfElse)
-
-    choice_state = while_ | if_else
-
-    """
-    # Flow Control blocks
-    transform_block = maybe(n_('transform') + op_(':') + block_s + maybe(mod_transform) + block_e)
-    error_block = maybe(n_('error') + op_(':') + block_s + maybe(mod_error) + block_e)
-    block = block_s + maybe(string) + many(state) + block_e
-
-    # Control Flow states
-    comparison = comp_stmt + op_(':')
-    while_ = l('while') + comparison + block >> make_while
-    if_else = (l('if') + comparison + block +
-               many(l('elif') + comparison + block) +
-               maybe(l('else') + op_(':') + block)) >> make_if_else
-    case = n_('case') + (boolean|number|ts_str) + op_(':') + block
-    switch = (l('switch') + string + op_(':') +
-              block_s + maybe(string) + many(case) +
-              maybe(n_('default') + op_(':') + block) +
-              block_e) >> make_switch
+    switch_case = n('case') + (boolean|number|timestamp|string) + op_(':') + block
+    switch = (n('switch') + string + op_(':') +
+              block_s + maybe(string) + many(switch_case) +
+              maybe(n('default') + op_(':') + block) +
+              block_e + transform_block) >> make(ASTStateSwitch)
     choice_state = while_ | if_else | switch
-    choice_state_ = (choice_state + transform_block) >> make_flow_modifiers >> add_modifiers
-    parallel = (l('parallel') + op_(':') + block +
-                many(l('parallel') + op_(':') + block)) >> make_parallel
-    parallel_ = (parallel + transform_block + error_block) >> make_flow_modifiers >> add_modifiers
-    #state.define(simple_state_ | choice_state_ | parallel_)
-    """
-    state.define(simple_state | choice_state)
+
+    error_modifier = (retry_block|catch_block) + many(retry_block|catch_block) >> make(ASTModifiers)
+    error_block = maybe(n_('error') + op_(':') + block_s + maybe(error_modifier) + block_e)
+    parallel = (n('parallel') + op_(':') + comment_block +
+                many(n('parallel') + op_(':') + block) +
+                transform_block + error_block) >> make(ASTStateParallel)
+
+    state.define(simple_state | choice_state | parallel)
 
     # State Machine
     version = maybe(n('version') + op_(':') + string >> make(ASTModVersion))
@@ -838,15 +351,15 @@ def parse(seq, region=None, account=None, translate=lambda x: x):
     machine = maybe(string) + version + timeout + many(state) + end >> make(ASTStepFunction)
 
     try:
-        # call run() directly to have better control of error handling
+        # DP NOTE: call run() directly to have better control of error handling
         (tree, _) = machine.run(seq, State())
-        #link(tree)
-        tree.states = link(tree.states)
+        link_branch(tree)
+        # TODO: check state names (As seperate step or part of link)
+        # TODO: callback to resolve lambda and activity arns
         function = StepFunction(tree)
         #import code
         #code.interact(local=locals())
 
-        # TODO Link / modify the AST to be in the format needed to convert to JSON
         return function
     except NoParseError as e:
         max = e.state.max
