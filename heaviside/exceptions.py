@@ -18,6 +18,9 @@ class ActivityError(Exception):
         self.error = error
         self.cause = cause
 
+    def __str__(self):
+        return "{}: {}".format(self.error, self.cause)
+
 class HeavisideError(Exception):
     """Base class for all Heaviside errors"""
     pass
