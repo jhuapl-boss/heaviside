@@ -422,7 +422,11 @@ def resolve_arns(branch, translate = lambda x, y: y):
 
     for state in branch.states:
         if isinstance(state, ASTStateTask):
-            state.arn.value = translate(state.token.value, state.arn.value)
+            try:
+                state.arn.value = translate(state.token.value, state.arn.value)
+            except Exception as e:
+                state.raise_error(str(e))
+
         elif isinstance(state, ASTStateParallel):
             for branch in state.branches:
                 resolve_arns(branch, translate)

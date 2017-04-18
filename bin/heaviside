@@ -166,7 +166,7 @@ if __name__ == '__main__':
             else:
                 print("Execution ARN: {}".format(arn))
         else:
-            raise Exception('Unsupported command: {}'.format(args.command))
+            raise heaviside.exceptions.HeavisideError('Unsupported command: {}'.format(args.command))
     except heaviside.exceptions.HeavisideError as e:
         print(e)
         sys.exit(1)

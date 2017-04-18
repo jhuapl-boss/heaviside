@@ -23,7 +23,7 @@ from botocore.exceptions import ClientError
 
 from .lexer import tokenize_source
 from .parser import parse
-from .exceptions import CompileError
+from .exceptions import CompileError, HeavisideError
 from .utils import create_session, read
 
 
@@ -110,7 +110,7 @@ class StateMachine(object):
             arn = ":".join(vals)
             return arn
         except TypeError:
-            raise Exception("One or more of the default values for ARN '{}' was not specified".format(actual))
+            raise TypeError("One or more of the default values for ARN '{}' was not specified".format(actual))
 
     def build(self, source, **kwargs):
         """Build the state machine definition from a source (file)
@@ -138,7 +138,7 @@ class StateMachine(object):
                 response = client.get_role(RoleName=role)
                 role = response['Role']['Arn']
             except:
-                raise Exception("Could not lookup role '{}'".format(role))
+                raise HeavisideError("Could not lookup role '{}'".format(role))
 
         return role
 
@@ -155,7 +155,7 @@ class StateMachine(object):
             CompileError: If the was a problem compiling the source
         """
         if self.arn is not None:
-            raise Exception("State Machine {} already exists".format(self.arn))
+            raise HeavisideError("State Machine {} already exists".format(self.arn))
 
         role = self._resolve_role(role)
         definition = self.build(source)
@@ -174,7 +174,7 @@ class StateMachine(object):
         """
         if self.arn is None:
             if exception:
-                raise Exception("State Machine {} doesn't exist yet".format(self.name))
+                raise HeavisideError("State Machine {} doesn't exist yet".format(self.name))
         else:
             resp = self.client.delete_state_machine(stateMachineArn = self.arn)
             self.arn = None
@@ -192,7 +192,7 @@ class StateMachine(object):
             string: ARN of the state machine execution, used to get status and output data
         """
         if self.arn is None:
-            raise Exception("State Machine {} doesn't exist yet".format(self.name))
+            raise HeavisideError("State Machine {} doesn't exist yet".format(self.name))
 
         input_ = json.dumps(input_)
 
@@ -256,7 +256,7 @@ class StateMachine(object):
                         key = 'execution{}EventDetails'.format(key)
                         if key in event:
                             return event[key]
-                    raise Exception("Could not locate error output for execution '{}'".format(arn))
+                    raise HeavisideError("Could not locate error output for execution '{}'".format(arn))
             else:
                 time.sleep(period)
 
