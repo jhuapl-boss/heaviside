@@ -186,15 +186,13 @@ def comparison_():
     return comp_stmt
 comparison = comparison_()
 
-def parse(seq, region=None, account=None, translate=lambda x: x):
+def parse(seq, translate=lambda x, y: y):
     """Parse the given sequence of tokens into a StateMachine object
 
     Args:
         seq (list): List of lexer.Token tokens to parse
-        region (string): AWS region for constructed Lambda/Activity ARNs
-        account (string): AWS account id for constructed Lambda/Activity ARNs
-        translate (function): Translation function applied to Lambda/Activity names
-                              before ARNs are constructed
+        translate (function): Translation function applied to Lambda/Activity names.
+                              Arguments are ("Lambda"|"Activity", arn)
 
     Returns
         sfn.StateMachine: StateMachine object
@@ -262,11 +260,11 @@ def parse(seq, region=None, account=None, translate=lambda x: x):
     machine = maybe(string) + version + timeout + many(state) + end >> make(ASTStepFunction)
 
     try:
-        # DP NOTE: call run() directly to have better control of error handling
+        # DP NOTE: calling run() directly to have better control of error handling
         (tree, _) = machine.run(seq, State())
         link_branch(tree)
-        # TODO: check state names (As seperate step or part of link)
-        # TODO: callback to resolve lambda and activity arns
+        check_names(tree)
+        resolve_arns(tree, translate)
         function = StepFunction(tree)
         #import code
         #code.interact(local=locals())

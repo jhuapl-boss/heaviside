@@ -392,9 +392,38 @@ def link(states, final=None):
 
     return linked
 
-def check_names(states):
-    names = [s.name for s in states]
-    # find non unique names in names list
+MAX_NAME_LENGTH = 128
+def check_names(branch):
+    if not hasattr(branch, 'states'):
+        branch.raise_error("Trying to check names for non-branch state")
 
-    # find names with invalid characters (space?)
+    to_process = [branch.states]
+    names = set()
+
+    while len(to_process) > 0:
+        states = to_process.pop(0)
+
+        for state in states:
+            if len(state.name) > MAX_NAME_LENGTH:
+                state.raise_error("Name exceedes {} characters".format(MAX_NAME_LENGTH))
+
+            if state.name in names:
+                state.raise_error("Duplicate state name '{}'".format(state.name))
+
+            names.add(state.name)
+
+            if isinstance(state, ASTStateParallel):
+                for branch in state.branches:
+                    to_process.append(branch.states)
+
+def resolve_arns(branch, translate = lambda x, y: y):
+    if not hasattr(branch, 'states'):
+        branch.raise_error("Trying to resolve arns for non-branch state")
+
+    for state in branch.states:
+        if isinstance(state, ASTStateTask):
+            state.arn.value = translate(state.token.value, state.arn.value)
+        elif isinstance(state, ASTStateParallel):
+            for branch in state.branches:
+                resolve_arns(branch, translate)
 

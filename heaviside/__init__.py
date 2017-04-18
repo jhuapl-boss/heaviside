@@ -27,13 +27,11 @@ from .exceptions import CompileError
 from .utils import create_session, read
 
 
-def compile(source, region=None, account_id=None, translate=None, **kwargs):
+def compile(source, translate=None, **kwargs):
     """Compile a source step function dsl file into the AWS state machine definition
 
     Args:
         source (string|Path|file object): Source of step function dsl, passed to read()
-        region (string): AWS Region for Lambda / Activity ARNs that need to be filled in
-        account_id (string): AWS Account ID for Lambda / Activity ARNs that need to be filled in
         translate (None|function): Function that translates a Lambda / Activity name before
                                    the ARN is completed
         kwargs (dict): Arguments to be passed to json.dumps() when creating the definition
@@ -50,9 +48,9 @@ def compile(source, region=None, account_id=None, translate=None, **kwargs):
             tokens = tokenize_source(fh.readline)
 
         if translate is None:
-            translate = lambda x: x
+            translate = lambda x, y: y
 
-        machine = parse(tokens, region, account_id, translate)
+        machine = parse(tokens, translate)
         def_ = machine.definition(**kwargs)
         return def_
     except CompileError as e:
@@ -61,6 +59,7 @@ def compile(source, region=None, account_id=None, translate=None, **kwargs):
     #except Exception as e:
     #    print("Unhandled Error: {}".format(e))
 
+# DP TODO: replace based Exceptions with HeavisideErrors
 class StateMachine(object):
     """Class for working with and executing AWS Step Function State Machines"""
 
@@ -73,6 +72,7 @@ class StateMachine(object):
         self.name = name
         self.arn = None
         self.session, self.account_id = create_session(**kwargs)
+        self.region = self.session.region_name
         self.client = self.session.client('stepfunctions')
 
         resp = self.client.list_state_machines()
@@ -81,17 +81,36 @@ class StateMachine(object):
                 self.arn = machine['stateMachineArn']
                 break
 
-    def _translate(self, function):
+    def _translate(self, type_, function):
         """Default implementation of a function to translate Lambda/Activity names
         before ARNs are created
 
         Args:
+            type_ (string): Lambda | Activity
             function (string): Name of Lambda / Activity
 
         Returns:
             string: Name of the Lambda / Activity
         """
-        return function
+        if type_ == "Lambda":
+            defaults = ['arn', 'aws', 'lambda', self.region, self.account_id, 'function']
+        else:
+            defaults = ['arn', 'aws', 'states', self.region, self.account_id, 'activity']
+
+        parts = function.split(':')
+        name = parts.pop()
+        offset = len(defaults) - len(parts)
+        try:
+            # Wrap the join because an error should only be produced if we try
+            # to use a None value. None can be passed in the defaults if that
+            # default value is never used
+            vals = defaults[:offset]
+            vals.extend(parts)
+            vals.append(name)
+            arn = ":".join(vals)
+            return arn
+        except TypeError:
+            raise Exception("One or more of the default values for ARN '{}' was not specified".format(actual))
 
     def build(self, source, **kwargs):
         """Build the state machine definition from a source (file)
@@ -109,7 +128,7 @@ class StateMachine(object):
             CompileError: If the was a problem compiling the source
         """
         region = self.session.region_name
-        return compile(source, region, self.account_id, self._translate, **kwargs)
+        return compile(source, self._translate, **kwargs)
 
     def _resolve_role(self, role):
         role = role.strip()
