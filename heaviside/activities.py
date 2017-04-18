@@ -23,8 +23,109 @@ from multiprocessing import Process
 from botocore.exceptions import ClientError
 from botocore.client import Config
 
-from .exceptions import ActivityError
+from .exceptions import ActivityError, HeavisideError
 from .utils import create_session
+
+def fanout(session, sub_sfn, sub_args, max_concurrent=50, rampup_delay=15, rampup_backoff=0.8, poll_delay=5, status_delay=1):
+    class SFN(object):
+        class Status(object):
+            __slots__ = ('resp')
+
+            def __init__(self, resp):
+                self.resp = resp
+
+            @property
+            def failed(self):
+                return self.resp['status'] == 'FAILED'
+
+            @property
+            def success(self):
+                return self.resp['status'] == 'SUCCEEDED'
+
+            @property
+            def output(self):
+                return json.loads(self.resp['output']) if 'output' in self.resp else None
+
+        def __init__(self, session, name):
+            self.client = session.client('stepfunctions')
+            self.arn = None
+
+            resp = self.client.list_state_machines()
+            for machine in resp['stateMachines']:
+                arn = machine['stateMachineArn']
+                if arn.endswith(name):
+                    self.arn = arn
+                    break
+
+            if self.arn is None:
+                raise HeavisideError("Could not find stepfunction {}".format(name))
+
+        def launch(self, args):
+            resp = self.client.start_execution(stateMachineArn = self.arn,
+                                               name = datetime.now().strftime("%Y%m%d%H%M%s%f"),
+                                               input = json.dumps(args))
+            return resp['executionArn']
+
+        def status(self, arn):
+            resp = self.client.describe_execution(executionArn = arn)
+            return SFN.Status(resp)
+
+        def error(self, arn):
+            resp = self.client.get_execution_history(executionArn = arn,
+                                                     reverseOrder = True)
+            event = resp['events'][0]
+            for key in ['Failed', 'Aborted', 'TimedOut']:
+                key = 'execution{}EventDetails'.format(key)
+                if key in event:
+                    return ActivityError(event[key]['error'], event[key]['cause'])
+            return HeavisideError("Unknown exception occurred in sub-process")
+
+    log = logging.getLogger(__name__)
+    sfn = SFN(session, sub_sfn)
+
+    running = []
+    results = []
+    delay = rampup_delay
+    started_all = False
+
+    if not isinstance(sub_args, types.GeneratorType):
+        sub_args = (arg for arg in sub_args) # convert to a generator
+
+    while True:
+        try:
+            while not started_all and len(running) < max_concurrent:
+                running.append(sfn.launch(next(sub_args)))
+                time.sleep(delay)
+                if delay > 0:
+                    delay = int(delay * rampup_backoff)
+        except StopIteration:
+            started_all = True
+            log.debug("Finished launching sub-processes")
+
+        time.sleep(poll_delay)
+
+        still_running = []
+        for arn in running:
+            status = sfn.status(arn)
+            if status.failed:
+                error = sfn.error(arn)
+                log.debug("Sub-process failed: {}".format(error))
+                raise error
+            elif status.success:
+                results.append(status.output)
+            else:
+                still_running.append(arn)
+            time.sleep(status_delay)
+
+        log.debug("Sub-processes finished: {}".format(len(running) - len(still_running)))
+        log.debug("Sub-processes running: {}".format(len(still_running)))
+        running = still_running
+
+        if started_all and len(running) == 0:
+            log.debug("Finished")
+            break
+
+    return results
 
 # DP TODO: rewrite as Mixins so that Processes, Threads, and other implementations can be used
 
