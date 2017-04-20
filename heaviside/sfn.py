@@ -171,7 +171,7 @@ class Catch(dict):
             errors = [errors]
 
         self['ErrorEquals'] = [e.value for e in errors]
-        self['Next'] = None # TODO Implement
+        self['Next'] = ast.next
 
         if ast.path is not None:
             self['ResultPath'] = ast.path.value
@@ -190,7 +190,7 @@ class Retry(dict):
         self['ErrorEquals'] = [e.value for e in errors]
         self['IntervalSeconds'] = ast.interval.value
         self['MaxAttempts'] = ast.max.value
-        self['BackoffRate'] = ast.backoff.value
+        self['BackoffRate'] = float(ast.backoff.value)
 
 COMPARISON = {
     '==': {

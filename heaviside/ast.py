@@ -374,6 +374,13 @@ def link(states, final=None):
             state.end = next_ is None
             state.next = next_
 
+        if state.catch is not None:
+            for catch in state.catch:
+                states_ = catch.block
+                linked_ = link(states_, final=next_)
+                catch.next = linked_[0].name
+                linked.extend(linked_)
+
         # Different states use the branches variable in different ways
         if isinstance(state, ASTStateChoice):
             for key in state.branches:
