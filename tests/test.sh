@@ -9,7 +9,7 @@ fi
 for input in `ls *.hsd`; do
     output="${input%.*}.sfn"
     tmp="tmp.sfn"
-    ../bin/heaviside compile $input -o $tmp 2> /dev/null
+    ../bin/heaviside -r '' -a '' compile $input -o $tmp 2> /dev/null
     if [ $? -eq 0 ] ; then
         echo "Verifying results for ${input}"
         # if there is an error, the compiler prints the error message
