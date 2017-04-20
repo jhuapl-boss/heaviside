@@ -360,15 +360,16 @@ class ActivityMixin(object):
                             results.start()
                             self.workers.append(results)
 
-                            while len(self.workers) >= self.max_concurrent:
-                                workers = []
-                                # remove any finished (not alive) workers
-                                for worker in self.workers:
-                                    if worker.is_alive():
-                                        workers.append(worker)
-                                self.workers = workers
-                                if len(self.workers) >= self.max_concurrent:
-                                    time.sleep(self.poll_delay)
+                            if self.max_concurrent > 0:
+                                while len(self.workers) >= self.max_concurrent
+                                    workers = []
+                                    # remove any finished (not alive) workers
+                                    for worker in self.workers:
+                                        if worker.is_alive():
+                                            workers.append(worker)
+                                    self.workers = workers
+                                    if len(self.workers) >= self.max_concurrent:
+                                        time.sleep(self.poll_delay)
                     except Exception as e:
                         self.log.exception("Problem launching task process")
                         self.log.debug("Attempting to fail task")
@@ -463,6 +464,9 @@ class Activity(ActivityMixin, TaskMixin):
         self.client = self.session.client('stepfunctions', config=Config(read_timeout=70))
         self.log = logging.getLogger(__name__)
 
+        self.max_concurrent = 0
+        self.poll_delay = 1
+
         if self.arn is None:
             self.arn = self.lookup_activity_arn(name)
         else:
@@ -547,6 +551,9 @@ class ActivityProcess(Process, ActivityMixin):
         self.session, self.account_id = create_session(**kwargs)
         self.client = self.session.client('stepfunctions', config=Config(read_timeout=70))
         self.log = logging.getLogger(__name__)
+
+        self.max_concurrent = 0
+        self.poll_delay = 1
 
         if isinstance(target, str):
             target = TaskProcess.resolve_function(target)
