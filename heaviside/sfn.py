@@ -17,7 +17,7 @@ from collections import OrderedDict
 
 import iso8601 # parser for timestamp format
 
-from .ast import ASTStateChoice, ASTCompOp, ASTCompNot, ASTCompAndOr
+from .ast import ASTStateChoice, ASTCompOp, ASTCompNot, ASTCompAndOr, ASTValue
 
 class Timestamp(object):
     """Wrapper around a timestamp string.
@@ -171,7 +171,7 @@ class Catch(dict):
             errors = [errors]
 
         if len(errors) == 0:
-            errors = ['States.ALL']
+            errors = [ASTValue('States.ALL', None)]
 
         self['ErrorEquals'] = [e.value for e in errors]
         self['Next'] = ast.next
@@ -191,7 +191,7 @@ class Retry(dict):
             errors = [errors]
 
         if len(errors) == 0:
-            errors = ['States.ALL']
+            errors = [ASTValue('States.ALL', None)]
 
         self['ErrorEquals'] = [e.value for e in errors]
         self['IntervalSeconds'] = ast.interval.value
