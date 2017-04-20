@@ -116,15 +116,15 @@ if __name__ == '__main__':
         sys.exit(1)
 
     credentials = {}
-    if args.credentials:
+    if args.credentials is not None:
         credentials['credentials'] = json.load(args.credentials)
-    if args.region:
+    if args.region is not None:
         credentials['region'] = args.region
-    if args.account_id:
+    if args.account_id is not None:
         credentials['account_id'] = args.account_id
-    if args.secret_key:
+    if args.secret_key is not None:
         credentials['secret_key'] = args.secret_key
-    if args.access_key:
+    if args.access_key is not None:
         credentials['access_key'] = args.access_key
 
     try:
