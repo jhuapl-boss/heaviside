@@ -157,7 +157,7 @@ class TaskMixin(object):
               are silently discarded.
         """
 
-        if self.token is not None:
+        if self.token is not None or self.token != token:
             raise Exception("Currently working on a task")
 
         self.token = token
@@ -525,7 +525,15 @@ class TaskProcess(Process, TaskMixin):
             raise Exception("No target to handle processing")
 
     def run(self):
-        self.handle_task(self.token, self.input_)
+        try:
+            self.handle_task(self.token, self.input_)
+        except Exception as e:
+            self.log.exception("Problem in TaskProcess")
+
+            if self.token is not None:
+                self.log.info("Atempting to fail task")
+                error = type(e).__name__
+                self.failure(error, str(e))
 
 class ActivityProcess(Process, ActivityMixin):
     """Process for polling an Activity's ARN and launching TaskProcesses to handle
@@ -564,7 +572,10 @@ class ActivityProcess(Process, ActivityMixin):
 
     def run(self):
         # NOTE: The default implementation of run() in Process hides the ActivityMixin version
-        ActivityMixin.run(self, name=self.name)
+        try:
+            ActivityMixin.run(self, name=self.name)
+        except:
+            self.log.exception("Problem in ActivityProcess")
 
 class ActivityManager(object):
     """Manager for launching multiple ActivityProcesses and monitoring that
