@@ -170,6 +170,9 @@ class Catch(dict):
         if type(errors) != list:
             errors = [errors]
 
+        if len(errors) == 0:
+            errors = ['States.ALL']
+
         self['ErrorEquals'] = [e.value for e in errors]
         self['Next'] = ast.next
 
@@ -186,6 +189,9 @@ class Retry(dict):
         # ??? put this transformation in AST
         if type(errors) != list:
             errors = [errors]
+
+        if len(errors) == 0:
+            errors = ['States.ALL']
 
         self['ErrorEquals'] = [e.value for e in errors]
         self['IntervalSeconds'] = ast.interval.value
