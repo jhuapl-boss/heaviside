@@ -553,7 +553,7 @@ class ActivityProcess(Process, ActivityMixin):
         self.target = target
 
     def handle_task(self, token, input_):
-        return TaskProcess(token, input_, target=target, **self.credentials)
+        return TaskProcess(token, input_, target=self.target, **self.credentials)
 
     def run(self):
         # NOTE: The default implementation of run() in Process hides the ActivityMixin version
