@@ -17,7 +17,7 @@ import time
 import random
 import json
 import logging
-import datetime
+from datetime import datetime
 from string import ascii_uppercase as CHARS
 from multiprocessing import Process
 
@@ -158,7 +158,7 @@ class TaskMixin(object):
               are silently discarded.
         """
 
-        if self.token is not None or self.token != token:
+        if self.token is not None and self.token != token:
             raise Exception("Currently working on a task")
 
         self.token = token
