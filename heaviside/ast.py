@@ -72,10 +72,10 @@ class ASTCompAndOr(ASTNode):
             self.comps.append(comp)
 
 class ASTCompAnd(ASTCompAndOr):
-    op = 'AND'
+    op = 'And'
 
 class ASTCompOr(ASTCompAndOr):
-    op = 'OR'
+    op = 'Or'
 
 class ASTModKV(ASTValue):
     def __init__(self, key, value):
