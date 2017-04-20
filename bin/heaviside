@@ -129,7 +129,22 @@ if __name__ == '__main__':
 
     try:
         if args.command == "compile":
+            def find_(key):
+                if key in credentials:
+                    return credentials[key]
+                if 'credentials' in credentials:
+                    for key_ in (key, 'aws_' + key):
+                        if key_ in credentials['credentials']:
+                            return credentials['credentials'][key_]
+                print("Could not find {} value, using ''".format(key), file=sys.stderr)
+                return ''
+
+            region = find_('region')
+            account = find_('account_id')
+            translate = heaviside.create_translate(region, account)
+
             machine = heaviside.compile(Path(args.file),
+                                        translate = translate,
                                         indent=3)
 
             args.output.write(machine)

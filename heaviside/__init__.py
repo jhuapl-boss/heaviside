@@ -26,6 +26,51 @@ from .parser import parse
 from .exceptions import CompileError, HeavisideError
 from .utils import create_session, read
 
+def create_translate(region, account_id):
+    """Create translation function that will generate the full ARN URI from a
+   given Lambda or Activity name.
+
+    Note: region / account_id can be None if those parts of the ARN are already
+          specified
+
+    Args:
+        region (string) : The region name for the ARN
+        account_id (string) : The account id for the ARN
+
+    Returns:
+        function : translate function that can be passed to compile()
+    """
+    def _translate(type_, function):
+        """Common implementation of a translate function the fills out the
+        whole ARN
+
+        Args:
+            type_ (string): Lambda | Activity
+            function (string): Name of Lambda / Activity
+
+        Returns:
+            string: ARN URI of the Lambda / Activity
+        """
+        if type_ == "Lambda":
+            defaults = ['arn', 'aws', 'lambda', region, account_id, 'function']
+        else:
+            defaults = ['arn', 'aws', 'states', region, account_id, 'activity']
+
+        parts = function.split(':')
+        name = parts.pop()
+        offset = len(defaults) - len(parts)
+        try:
+            # Wrap the join because an error should only be produced if we try
+            # to use a None value. None can be passed in the defaults if that
+            # default value is never used
+            vals = defaults[:offset]
+            vals.extend(parts)
+            vals.append(name)
+            arn = ":".join(vals)
+            return arn
+        except TypeError:
+            raise TypeError("One or more of the default values for ARN '{}' was not specified".format(actual))
+    return _translate
 
 def compile(source, translate=None, **kwargs):
     """Compile a source step function dsl file into the AWS state machine definition
@@ -74,43 +119,13 @@ class StateMachine(object):
         self.session, self.account_id = create_session(**kwargs)
         self.region = self.session.region_name
         self.client = self.session.client('stepfunctions')
+        self._translate = create_translate(self.retion, self.account_id)
 
         resp = self.client.list_state_machines()
         for machine in resp['stateMachines']:
             if machine['name'] == name:
                 self.arn = machine['stateMachineArn']
                 break
-
-    def _translate(self, type_, function):
-        """Default implementation of a function to translate Lambda/Activity names
-        before ARNs are created
-
-        Args:
-            type_ (string): Lambda | Activity
-            function (string): Name of Lambda / Activity
-
-        Returns:
-            string: Name of the Lambda / Activity
-        """
-        if type_ == "Lambda":
-            defaults = ['arn', 'aws', 'lambda', self.region, self.account_id, 'function']
-        else:
-            defaults = ['arn', 'aws', 'states', self.region, self.account_id, 'activity']
-
-        parts = function.split(':')
-        name = parts.pop()
-        offset = len(defaults) - len(parts)
-        try:
-            # Wrap the join because an error should only be produced if we try
-            # to use a None value. None can be passed in the defaults if that
-            # default value is never used
-            vals = defaults[:offset]
-            vals.extend(parts)
-            vals.append(name)
-            arn = ":".join(vals)
-            return arn
-        except TypeError:
-            raise TypeError("One or more of the default values for ARN '{}' was not specified".format(actual))
 
     def build(self, source, **kwargs):
         """Build the state machine definition from a source (file)
@@ -127,7 +142,6 @@ class StateMachine(object):
         Raises:
             CompileError: If the was a problem compiling the source
         """
-        region = self.session.region_name
         return compile(source, self._translate, **kwargs)
 
     def _resolve_role(self, role):
@@ -241,7 +255,7 @@ class StateMachine(object):
             dict: Dict of Json data
 
         Exceptions:
-            Exception: If there was an error getting the failure message
+            HeavisideError: If there was an error getting the failure message
         """
         while True:
             resp = self.client.describe_execution(executionArn = arn)
