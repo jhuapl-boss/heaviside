@@ -343,6 +343,7 @@ class ActivityMixin(object):
 
         self.workers = []
 
+        self.log.debug("Starting polling {} for tasking".format(self.arn))
         # DP NOTE: needed for unit test, so the loop will exit
         # DP TODO: make thread safe so it can be used to stop a running thread
         self.polling = True
@@ -384,7 +385,6 @@ class ActivityMixin(object):
                     #         if so, need to figure out how to send a failure for the tasks that havn't finished...
             except KeyboardInterrupt:
                 self.log.info("CTRL-C caught, terminating")
-                self.polling = False
             except Exception as e:
                 # DP ???: create a flag for if a task was accepted and fail it if there was an issue launching the task
                 # DP ???: What to do when there is an exception communicating with AWS
@@ -611,4 +611,6 @@ class ActivityManager(object):
             for key in procs:
                 if procs[key].is_alive():
                     procs[key].terminate()
+        except:
+            self.log.exception("Unexpected exception caught, terminating manager")
 
