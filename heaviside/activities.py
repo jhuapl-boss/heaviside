@@ -361,7 +361,7 @@ class ActivityMixin(object):
                             self.workers.append(results)
 
                             if self.max_concurrent > 0:
-                                while len(self.workers) >= self.max_concurrent
+                                while len(self.workers) >= self.max_concurrent:
                                     workers = []
                                     # remove any finished (not alive) workers
                                     for worker in self.workers:
