@@ -546,7 +546,6 @@ class ActivityProcess(Process, ActivityMixin):
         self.credentials = kwargs
         self.session, self.account_id = create_session(**kwargs)
         self.client = self.session.client('stepfunctions', config=Config(read_timeout=70))
-        self.arn = self.lookup_activity_arn(name)
         self.log = logging.getLogger(__name__)
 
         if isinstance(target, str):
@@ -555,6 +554,10 @@ class ActivityProcess(Process, ActivityMixin):
 
     def handle_task(self, token, input_):
         return TaskProcess(token, input_, target=target, **self.credentials)
+
+    def run(self):
+        # NOTE: The default implementation of run() in Process hides the ActivityMixin version
+        ActivityMixin.run(self, name=self.name)
 
 class ActivityManager(object):
     """Manager for launching multiple ActivityProcesses and monitoring that
