@@ -82,7 +82,7 @@ def value_to_number(ast):
             ast.raise_error("'{}' is not a valid number".format(ast.value))
     return ast
 
-number = toktype('NUMBER') >> tok_to_value >> value_to_number
+number = toktype('NUMBER') >> value_to_number
 
 def value_to_string(ast):
     if ast.value[:3] in ('"""', "'''"):
@@ -91,7 +91,7 @@ def value_to_string(ast):
         ast.value = ast.value[1:-1]
     return ast
 
-string = toktype('STRING') >> tok_to_value >> value_to_string
+string = toktype('STRING') >> value_to_string
 
 def string_to_timestamp(ast):
     try:

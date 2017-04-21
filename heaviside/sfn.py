@@ -196,6 +196,12 @@ class Retry(dict):
         if len(errors) == 0:
             errors = [ASTValue('States.ALL', None)]
 
+        if float(ast.backoff.value) < 1.0:
+            ast.backoff.raise_error("Backoff rate should be >= 1.0")
+
+        if ast.interval.value <= 0:
+            ast.interval.raise_error("Interval seconds should be > 0")
+
         self['ErrorEquals'] = [e.value for e in errors]
         self['IntervalSeconds'] = ast.interval.value
         self['MaxAttempts'] = ast.max.value
