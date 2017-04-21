@@ -40,6 +40,9 @@ class Timestamp(object):
     def __str__(self):
         return self.timestamp
 
+    def __repr__(self):
+        return "Timestamp({!r})".format(self.timestamp)
+
 class _StateMachineEncoder(json.JSONEncoder):
     """Custom JSONEncoder that handles the Timestamp type"""
     def default(self, o):

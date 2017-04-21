@@ -50,6 +50,9 @@ class ASTValue(ASTNode):
         super(ASTValue, self).__init__(token)
         self.value = value
 
+    def __repr__(self):
+        return "ASTValue({!r})".format(self.value)
+
 class ASTCompOp(ASTNode):
     def __init__(self, var, op, val):
         # Use the first token of the expression
@@ -58,10 +61,16 @@ class ASTCompOp(ASTNode):
         self.op = op
         self.val = val
 
+    def __repr__(self):
+        return "ASTCompOp({!r} {!r} {!r})".format(self.var, self.op, self.val)
+
 class ASTCompNot(ASTNode):
     def __init__(self, not_, comp):
         super(ASTCompNot, self).__init__(not_.token)
         self.comp = comp
+
+    def __repr__(self):
+        return "ASTCompNot({!r})".format(self.comp)
 
 class ASTCompAndOr(ASTNode):
     op = None
@@ -70,6 +79,9 @@ class ASTCompAndOr(ASTNode):
         self.comps = [comp]
         for c in comps:
             self.comps.append(c)
+
+    def __repr__(self):
+        return "ASTComp{}({!r})".format(self.op, self.comps)
 
 class ASTCompAnd(ASTCompAndOr):
     op = 'And'
