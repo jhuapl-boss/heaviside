@@ -84,6 +84,17 @@ def value_to_number(ast):
 
 number = toktype('NUMBER') >> value_to_number
 
+def check(cond, msg):
+    def check_(ast):
+        if not cond(ast.value):
+            ast.raise_error(msg.format(ast.value))
+        return ast
+    return check_
+
+integer = number >> check(lambda val: isinstance(val, int), "'{}' is not a valid integer")
+integer_nn = integer >> check(lambda val: val >= 0, "'{}' is not a non-negative integer")
+integer_pos = integer >> check(lambda val: val > 0, "'{}' is not a positive integer")
+
 def value_to_string(ast):
     if ast.value[:3] in ('"""', "'''"):
         ast.value = ast.value[3:-3]
@@ -204,13 +215,13 @@ def parse(seq, translate=lambda x, y: y):
 
     block = block_s + many(state) + block_e
     comment_block = block_s + maybe(string) + many(state) + block_e
-    retry_block = n('retry') + (array|string) + number + number + number >> make(ASTModRetry)
+    retry_block = n('retry') + (array|string) + integer_pos + integer_nn + number >> make(ASTModRetry)
     catch_block = n('catch') + (array|string) + op_(':') + maybe(string) + block >> make(ASTModCatch)
 
 
     # Simple States
-    state_modifier = ((n('timeout') + op_(':') + number >> make(ASTModTimeout)) |
-                      (n('heartbeat') + op_(':') + number >> make(ASTModHeartbeat)) |
+    state_modifier = ((n('timeout') + op_(':') + integer_pos >> make(ASTModTimeout)) |
+                      (n('heartbeat') + op_(':') + integer_pos >> make(ASTModHeartbeat)) |
                       (n('input') + op_(':') + string >> make(ASTModInput)) |
                       (n('result') + op_(':') + string >> make(ASTModResult)) |
                       (n('output') + op_(':') + string >> make(ASTModOutput)) |
@@ -225,7 +236,7 @@ def parse(seq, translate=lambda x, y: y):
     fail = n('Fail') + op_('(') + string + op_(',') + string + op_(')') + state_block >> make(ASTStateFail)
     task = (n('Lambda') | n('Activity')) + op_('(') + string + op_(')') + state_block >> make(ASTStateTask)
     wait_types = n('seconds') | n('seconds_path') | n('timestamp') | n('timestamp_path')
-    wait = n('Wait') + op_('(') + wait_types + op_('=') + (number|timestamp_or_string) + op_(')') + state_block >> make(ASTStateWait)
+    wait = n('Wait') + op_('(') + wait_types + op_('=') + (integer_pos|timestamp_or_string) + op_(')') + state_block >> make(ASTStateWait)
     simple_state = pass_ | success | fail | task | wait
 
     # Flow Control States
@@ -256,7 +267,7 @@ def parse(seq, translate=lambda x, y: y):
 
     # State Machine
     version = maybe(n('version') + op_(':') + string >> make(ASTModVersion))
-    timeout = maybe(n('timeout') + op_(':') + number >> make(ASTModTimeout))
+    timeout = maybe(n('timeout') + op_(':') + integer_pos >> make(ASTModTimeout))
     machine = maybe(string) + version + timeout + many(state) + end >> make(ASTStepFunction)
 
     try:
