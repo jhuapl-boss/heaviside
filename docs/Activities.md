@@ -101,7 +101,7 @@ that should be launched an monitored
 #### Example Activity Manager
 
 ```python
-from heaviside.activities import ActivityManager, ActivityProcess, TaskProcess
+from heaviside.activities import ActivityManager
 
 def example_activity(input_):
     # process input data
@@ -131,7 +131,7 @@ but provides and easy to implement solution.
 The fanout function will execute the given step function once per input argument
 and poll the execution ARN for the results. If successful, returns are
 aggregated into any array to be returned. If a failure occures, the failure
-information is extracted and raised as a `heaviside.exceptions.ActivityException`.
+information is extracted and raised as a `heaviside.exceptions.ActivityError`.
 
 The fanout function will also limit the number of concurrently executions and
 will slowly ramp up the execution of the step functions. The ramp up allows for
