@@ -118,7 +118,7 @@ Currently Heaviside has only been tested with Python 2.7 and 3.5.
 
 
 [AWS StepFunctions]: https://aws.amazon.com/step-functions/
-[state machine language]: https://state-language.net/spec.html
+[state machine language]: https://states-language.net/spec.html
 [StepFunctionDSL]: docs/StepFunctionDSL.md
 [Activities document]: docs/Activites.md
 [statelint]: https://github.com/awslabs/statelint
