@@ -179,8 +179,8 @@ def comparison_():
     comp_stmt = forward_decl()
     comp_base = forward_decl()
     comp_base.define((op_('(') + comp_stmt + op_(')')) | comp_op | ((n('not') + comp_base) >> make(ASTCompNot)))
-    comp_and = comp_base + many(n('and') + comp_base) >>  multi(make(ASTCompAnd))
-    comp_or = comp_and + many(n('or') + comp_and) >> multi(make(ASTCompOr))
+    comp_and = comp_base + many(n_('and') + comp_base) >> multi(make(ASTCompAnd))
+    comp_or = comp_and + many(n_('or') + comp_and) >> multi(make(ASTCompOr))
     comp_stmt.define(comp_or)
 
     return comp_stmt

@@ -69,7 +69,7 @@ class ASTCompAndOr(ASTNode):
         super(ASTCompAndOr, self).__init__(comp.token)
         self.comps = [comp]
         for c in comps:
-            self.comps.append(comp)
+            self.comps.append(c)
 
 class ASTCompAnd(ASTCompAndOr):
     op = 'And'
