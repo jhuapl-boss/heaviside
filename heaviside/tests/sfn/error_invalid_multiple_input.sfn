@@ -1,0 +1,3 @@
+Pass()
+    input: '$.foo'
+    input: '$.foo'

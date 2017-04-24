@@ -94,24 +94,26 @@ class ASTModKV(ASTValue):
         super(ASTModKV, self).__init__(value, key.token)
 
 class ASTModTimeout(ASTModKV):
-    pass
+    name = 'Timeout'
 
 class ASTModHeartbeat(ASTModKV):
-    pass
+    name = 'Heartbeat'
 
 class ASTModInput(ASTModKV):
-    pass
+    name = 'Input'
 
 class ASTModResult(ASTModKV):
-    pass
+    name = 'Result'
 
 class ASTModOutput(ASTModKV):
-    pass
+    name = 'Output'
 
 class ASTModData(ASTModKV):
-    pass
+    name = 'Data'
 
 class ASTModRetry(ASTNode):
+    name = 'Retry'
+
     def __init__(self, retry, errors, interval, max, backoff):
         super(ASTModRetry, self).__init__(retry.token)
         self.errors = errors
@@ -120,6 +122,8 @@ class ASTModRetry(ASTNode):
         self.backoff = backoff
 
 class ASTModCatch(ASTNode):
+    name = 'Catch'
+
     def __init__(self, catch, errors, path, block):
         super(ASTModCatch, self).__init__(catch.token)
         self.errors = errors
@@ -187,12 +191,14 @@ class ASTState(ASTNode):
 
             del modifiers.mods[type_]
 
+            name = type_.name if hasattr(type_, 'name') else str(type_.__name__)
+
             if type_ not in self.valid_modifiers:
-                vals[0].raise_error("Not a valid modifier for a {} state".format(self.state_type))
+                vals[0].raise_error("{} state cannot contain a {} modifier".format(self.state_type, name))
 
             if type_ not in self.multi_modifiers:
                 if len(vals) > 1:
-                    vals[1].raise_error("Can only specify modifier once per state")
+                    vals[1].raise_error("{} state can only contain one {} modifier".format(self.state_type, name))
 
                 vals = vals[0]
 
@@ -336,6 +342,9 @@ class ASTStepFunction(ASTNode):
         self.version = version
         self.timeout = timeout
         self.states = states
+
+##############################
+# AST Modification Functions #
 
 TERMINAL_STATES = (
     ASTStateSuccess,
