@@ -28,7 +28,11 @@ from .exceptions import ActivityError, HeavisideError
 from .utils import create_session
 
 class SFN(object):
+    """Wrapper for Boto3 StepFunction calls and response parsing"""
+
     class Status(object):
+        """Wrapper for StepFunction status response"""
+
         __slots__ = ('resp')
 
         def __init__(self, resp):
@@ -36,17 +40,26 @@ class SFN(object):
 
         @property
         def failed(self):
+            """If the StepFunction's state is FAILED"""
             return self.resp['status'] == 'FAILED'
 
         @property
         def success(self):
+            """If the StepFunction's state is SUCCEEDED"""
             return self.resp['status'] == 'SUCCEEDED'
 
         @property
         def output(self):
+            """The parsed JSON output of the StepFunction"""
             return json.loads(self.resp['output']) if 'output' in self.resp else None
 
     def __init__(self, session, name):
+        """
+        Args:
+            session (boto3.session) : Active session used to communicate
+            name (string) : Name of the Step Function to execute
+                            Used to lookup the full ARN
+        """
         self.client = session.client('stepfunctions')
         self.arn = None
 
@@ -62,19 +75,46 @@ class SFN(object):
 
     @staticmethod
     def create_name():
+        """Helper method to generate a unique execution name"""
         return datetime.now().strftime("%Y%m%d%H%M%s%f")
 
     def launch(self, args):
+        """Execute the named StepFunction with the given arguments
+
+        Args:
+            args : Argument to be passed to the StepFunction
+                   Will be JSON encoded before being sent
+
+        Returns:
+            String : Execution ARN
+        """
         resp = self.client.start_execution(stateMachineArn = self.arn,
                                            name = self.create_name(),
                                            input = json.dumps(args))
         return resp['executionArn']
 
     def status(self, arn):
+        """Get the status of the given execution
+
+        Args:
+            arn (String) : ARN of execution to query for status
+
+        Returns:
+            SFN.Status : Status information and execution output (if successful)
+        """
         resp = self.client.describe_execution(executionArn = arn)
         return SFN.Status(resp)
 
     def error(self, arn):
+        """Get an exception containing the error and reason for a failed execution
+
+        Args:
+            arn (String) : ARN of execution to query for error information
+
+        Returns:
+            ActivityError : With the error and cause, if it can be determined
+                            or a generic error message
+        """
         resp = self.client.get_execution_history(executionArn = arn,
                                                  reverseOrder = True)
         event = resp['events'][0]
@@ -82,10 +122,46 @@ class SFN(object):
             key = 'execution{}EventDetails'.format(key)
             if key in event:
                 return ActivityError(event[key]['error'], event[key]['cause'])
-        return HeavisideError("Unknown exception occurred in sub-process")
+        return ActivityError("Heaviside.Unknown", "Unknown exception occurred in sub-process")
 
 def fanout(session, sub_sfn, sub_args, max_concurrent=50, rampup_delay=15, rampup_backoff=0.8, poll_delay=5, status_delay=1):
+    """Activity helper method for executing a dynamic number of StepFunctions
+    and returning the results.
 
+    Executes the sub_sfn for each sub_args element. If any of the sub_sfn
+    executions fail, the error information is located and an ActivityError
+    is raised.
+
+    Args:
+        session (boto3.session) : Active session for communicating with AWS
+        sub_sfn (String) : Name or full ARN of StepFunction to execute
+                           Used to locate the full ARN in AWS
+        sub_args (list|generator) : Arguments for each sub_sfn execution
+                                    Each element is passed to a different
+                                    execution of the sub_sfn
+        max_concurrent (int) : Total number of concurrently executing sub_sfn
+                               that can be launched. Once this limit is hit
+                               fanout waits until some current executions have
+                               finished before launching more sub_sfn.
+        rampup_delay (int) : Initial delay between launches of sub_sfn. Allows
+                             for AWS resources to detect and scale to the large
+                             volume of requests that can be generated.
+        rampup_backoff (float) : Multiplier for rampup_delay that reduces the
+                                 delay until there is no delay left between
+                                 launches of sub_sfn.
+        poll_delay (int) : Delay between launching (multiple) sub_sfn and polling
+                           for their status.
+        status_delay (int) : Delay between polling the status of each concurrently
+                             executing sub_sfn. Used to limit AWS API request
+                             speed of fanout and not run into throttling problems.
+
+    Returns:
+        list : A list of the JSON parsed results for each executed sub_sfn.
+
+    Exceptions:
+        ActivityError : If there was a failure in a sub_sfn execution, contains
+                        the failure error and cause if it can be determined.
+    """
     log = logging.getLogger(__name__)
     sfn = SFN(session, sub_sfn)
 
@@ -134,13 +210,14 @@ def fanout(session, sub_sfn, sub_args, max_concurrent=50, rampup_delay=15, rampu
     return results
 
 class TaskMixin(object):
-    """
+    """Mixin with helper methods for processing and sending results back
+
     Expects:
         self.log (Logger) : used to log status information
         self.process (Function) : function used to process task input
                                   returns either the results or a generator
                                   (for sending heartbeat messages)
-        self.client (Boto3.Client) : Client for stepfunctions, used to communicate
+        self.client (boto3.Client) : Client for stepfunctions, used to communicate
                                      with AWS
 
     Uses:
@@ -149,7 +226,13 @@ class TaskMixin(object):
     """
 
     def __init__(self, process=lambda x: x, **kwargs):
-        """Will not be called if used as a mixin. Provides just the expected variables."""
+        """Will not be called if used as a mixin. Provides just the expected variables.
+        
+        Args:
+            process (callable) : Callable to handle task input and return output or
+                                 generator (for sending heartbeat messages)
+            kwargs : Arguments for heaviside.utils.create_session
+        """
         session, _ = create_session(**kwargs)
         self.client = session.client('stepfunctions')
         self.log = logging.getLogger(__name__)
@@ -157,10 +240,15 @@ class TaskMixin(object):
         self.token = None
 
     def handle_task(self, token, input_):
-        """Called by Process.start() to process data
-
+        """Wrapper around process() that handles sending heartbeats and results
+        and will handle exceptions and send a failure.
+        
         Note: If the task times out, the task results (or running coroutine)
               are silently discarded.
+
+        Args:
+            token (String) : Task token
+            input_ : JSON parsed input
         """
 
         if self.token is not None and self.token != token:
@@ -196,6 +284,14 @@ class TaskMixin(object):
 
     @staticmethod
     def resolve_function(task_proc):
+        """Import the given function module and return the function callable
+
+        Args:
+            task_proc (string) : module and function name
+
+        Returns:
+            callable : Referenced function
+        """
         import importlib
         module, _, function = task_proc.rpartition('.')
         module = importlib.import_module(module)
@@ -280,11 +376,15 @@ class TaskMixin(object):
         # DP TODO: put error handling here, as heartbeat may be used outside of handle_task()
 
 class ActivityMixin(object):
-    """
+    """Mixin with helper methods for polling for Activity tasking and spawing
+    wokers.
+
     Expects:
         self.log (Logger) : used to log status information
         self.client (Boto3.Client) : Client for stepfunctions, used to communicate
                                      with AWS
+        self.name (String) : If Step Function ARN or Name is not passed to self.run()
+                             Will be set/overridden by self.run(name=ARN) if provided
         self.arn (String) : If Step Function ARN or Name is not passed to self.run()
                             Will be set/overridden by self.run(name=ARN) if provided
         self.handle_task (Function) : function used to process task input and send
@@ -299,37 +399,48 @@ class ActivityMixin(object):
                                 maximum number of concurrent processes has been reached
 
     Uses:
-        self.name (String) : (OPTIONAL) The name of the activity (the last part of the ARN)
+        self.name (String) : The name of the activity (the last part of the ARN)
         self.workers (list): Used if self.handle_task returns a non-None result to
                              store the concurrently executing workers. Expects objects
                              to have an is_alive() method to know when execution has
                              finished and it can be cleaned up.
+        self.polling (boolean) : Flag used to control main loop in run()
     """
 
     def __init__(self, handle_task = lambda t, i: None, **kwargs):
-        """Will not be called if used as a mixin. Provides just the expected variables."""
+        """Will not be called if used as a mixin. Provides just the expected variables.
+        
+        Args:
+            handle_task (callable) : Callable to process task input and send success or
+                                     failure
+            kwargs : Arguments for heaviside.utils.create_session
+        """
         session, _ = create_session(**kwargs)
         # DP NOTE: read_timeout is needed so that the long poll for tasking doesn't
         #          timeout client side before AWS returns that there is no work
         self.client = session.client('stepfunctions', config=Config(read_timeout=70))
         self.log = logging.getLogger(__name__)
+        self.name = None
         self.arn = None
         self.handle_task = handle_task
         self.max_concurrent = 0
         self.poll_delay = 1
+        self.polling = False
 
     def lookup_activity_arn(self, name):
+        """Locate the ARN of the given activity name"""
         resp = self.client.list_activities()
         for activity in resp['activities']:
             if activity['name'] == name:
                 return activity['activityArn']
+        return None
 
-    def create_worker_name(self, name = None):
+    def create_worker_name(self):
+        """Generate a unique worker name"""
         rand = ''.join(random.sample(CHARS, 6))
 
         if name is None:
-            if hasattr(self, 'name'):
-                name = self.name
+            name = self.name
 
         if name is not None:
             rand = name + '-' + rand
@@ -337,18 +448,27 @@ class ActivityMixin(object):
         return rand
 
     def run(self, name=None):
+        """Start polling for Activity tasking
+
+        Args:
+            name (String|None) : Name or ARN of the Activity to monitor, if arn
+                                 is not already defined
+        """
         if name is None:
-            # DP TODO: look for self.name as well
             if not hasattr(self, 'arn') or self.arn is None:
                 raise Exception("Could not locate Activity ARN to poll")
-            name = self.arn.split(':')[-1]
+
+            self.name = self.arn.split(':')[-1]
         else:
             if name.lower().startswith("arn:"):
                 self.arn = name
+                self.name = self.arn.split(':')[-1]
             else:
                 self.arn = self.lookup_activity_arn(name)
+                self.name = name
                 self.create_activity(name)
 
+        # Storage for currently executing workers
         self.workers = []
 
         self.log.debug("Starting polling {} for tasking".format(self.arn))
@@ -357,7 +477,7 @@ class ActivityMixin(object):
         self.polling = True
         while self.polling:
             try:
-                worker = self.create_worker_name(name)
+                worker = self.create_worker_name()
                 token, input_ = self.poll_task(worker)
                 if token is not None:
                     try:
@@ -398,6 +518,7 @@ class ActivityMixin(object):
                     #         if so, need to figure out how to send a failure for the tasks that havn't finished...
             except KeyboardInterrupt:
                 self.log.info("CTRL-C caught, terminating")
+                self.polling = False
             except Exception as e:
                 # DP ???: create a flag for if a task was accepted and fail it if there was an issue launching the task
                 # DP ???: What to do when there is an exception communicating with AWS
@@ -411,13 +532,15 @@ class ActivityMixin(object):
 
         Args:
             worker (string): Name of the worker process to receive tasking for
+                             If None, a name will be generated
 
         Returns:
             string|None, dict|None: Task token, Json dictionary of arguments
                                     Nones if there is no task yet
         """
         if self.arn is None:
-            raise Exception("Activity {} doesn't exist".format(self.name))
+            name = self.name if hasattr(self, 'name') and self.name is not None else '<Unknown>'
+            raise Exception("Activity {} doesn't exist".format(name))
 
         if worker is None:
             worker = self.create_worker_name()
@@ -430,7 +553,7 @@ class ActivityMixin(object):
         else:
             return resp['taskToken'], json.loads(resp['input'])
 
-    def create_activity(self, name = None, exception = False):
+    def create_activity(self, exception = False):
         """Create the Activity in AWS
 
         Args:
@@ -440,13 +563,10 @@ class ActivityMixin(object):
             if exception:
                 raise Exception("Activity {} already exists".format(self.arn))
         else:
-            if name is None:
-                if hasattr(self, 'name'):
-                    name = self.name
-            if name is None:
+            if not hasattr(self, 'name') or self.name is None:
                 raise Exception("No activity name given")
 
-            resp = self.client.create_activity(name = name)
+            resp = self.client.create_activity(name = self.name)
             self.arn = resp['activityArn']
 
     def delete_activity(self, exception = False):
@@ -457,14 +577,29 @@ class ActivityMixin(object):
         """
         if self.arn is None:
             if exception:
-                raise Exception("Activity {} doesn't exist".format(self.name))
+                name = self.name if hasattr(self, 'name') and self.name is not None else '<Unknown>'
+                raise Exception("Activity {} doesn't exist".format(name))
         else:
             resp = self.client.delete_activity(activityArn = self.arn)
             self.arn = None
 
 
 class Activity(ActivityMixin, TaskMixin):
+    """Implementation of both ActivityMixin and TaskMixin in a single object
+    with a constructor that configures the expected variables.
+    """
+
     def __init__(self, name, arn=None, worker=None, **kwargs):
+        """
+        Args:
+            name (String): Name of the Activity to monitor
+            arn (String): Full ARN of Activity to monitor
+                          If not given, it is looked up
+                          If given, the actual ARN and Name are compared
+            process (callable): Callable that transforms the task's input
+                                into an output that is then returned
+            kwargs : Arguments to heaviside.utils.create_session
+        """
         self.name = name
         self.arn = arn
         self.worker = worker
@@ -552,9 +687,6 @@ class ActivityProcess(Process, ActivityMixin):
 
     def __init__(self, name, target=None, **kwargs):
         """
-        Note: task_proc arguments are the same as TaskProcess (minus the target argument)
-        Note: task_proc must return an object with a start() method
-
         Args:
             name (string): Name of the activity to monitor
                            The activity's ARN is looked up in AWS using the provided

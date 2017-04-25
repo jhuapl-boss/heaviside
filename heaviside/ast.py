@@ -352,6 +352,7 @@ TERMINAL_STATES = (
 )
 
 def link_branch(branch):
+    """Helper method for link() that reassigns the results to the given branch"""
     if hasattr(branch, 'states'):
         branch.states = link(branch.states)
     else:
@@ -359,6 +360,26 @@ def link_branch(branch):
     return branch
 
 def link(states, final=None):
+    """AST Transform function that links together the states of a branch
+
+    Performs the following actions:
+        * Sets the next / end attributes for all encountered ASTState objects
+        * If the final state is a ASTStateChoice and there is no default state
+          one is created, as you cannot terminate on a Choice state
+        * Makes the ASTStateWhile into a full loop
+        * If there is a Catch modifier or the state is a Choice state the sub-states
+          for each are recursivly linked and pulled up to the current level
+        * The branches for all Parallel states are recursivly linked
+
+    Args:
+        states (list) : List of ASTState objects
+        final (String) : Name of the next state to link the final state to
+                         or None to have the final state terminate
+
+    Returns:
+        list : List of ASTState objects with end/next set
+               Note: This is a different list than the input list
+    """
     linked = []
 
     total = len(states)
@@ -422,6 +443,12 @@ def link(states, final=None):
 
 MAX_NAME_LENGTH = 128
 def check_names(branch):
+    """Recursivly checks all state names to ensure they are valid
+
+    Checks performed:
+        * Name is not greater than 128 characters
+        * No duplicate state names
+    """
     if not hasattr(branch, 'states'):
         branch.raise_error("Trying to check names for non-branch state")
 
@@ -445,6 +472,16 @@ def check_names(branch):
                     to_process.append(branch.states)
 
 def resolve_arns(branch, translate = lambda x, y: y):
+    """AST Transform that looks for all Task states and passed the task type
+    and (partial) ARN to a callback. Used for resolving partial ARNs to full
+    ARNs.
+
+    Args:
+        branch (list): List of ASTState objects
+        translate (callable): Callable that receives task type and ARN
+                              Returned ARN replaces the current value in the
+                              ASTStateTask
+    """
     if not hasattr(branch, 'states'):
         branch.raise_error("Trying to resolve arns for non-branch state")
 

@@ -104,7 +104,6 @@ def compile(source, translate=None, **kwargs):
     #except Exception as e:
     #    print("Unhandled Error: {}".format(e))
 
-# DP TODO: replace based Exceptions with HeavisideErrors
 class StateMachine(object):
     """Class for working with and executing AWS Step Function State Machines"""
 

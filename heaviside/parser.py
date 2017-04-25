@@ -24,6 +24,7 @@ from .ast import *
 from .sfn import StepFunction, Timestamp
 
 def make(cls):
+    """Helper that unpacks the tuple of arguments before creating a class"""
     def make_(args):
         return cls(*args)
     return make_
@@ -174,6 +175,7 @@ def json_text():
     return json_text
 
 def comparison_():
+    """Returns the parse for a compound compare statement"""
     ops = op('==') | op('<') | op('>') | op('<=') | op('>=') | op('!=')
     op_vals = (boolean|number|timestamp_or_string)
     comp_op = string + ops + op_vals >> make(ASTCompOp)
