@@ -27,59 +27,64 @@ from botocore.client import Config
 from .exceptions import ActivityError, HeavisideError
 from .utils import create_session
 
+class SFN(object):
+    class Status(object):
+        __slots__ = ('resp')
+
+        def __init__(self, resp):
+            self.resp = resp
+
+        @property
+        def failed(self):
+            return self.resp['status'] == 'FAILED'
+
+        @property
+        def success(self):
+            return self.resp['status'] == 'SUCCEEDED'
+
+        @property
+        def output(self):
+            return json.loads(self.resp['output']) if 'output' in self.resp else None
+
+    def __init__(self, session, name):
+        self.client = session.client('stepfunctions')
+        self.arn = None
+
+        resp = self.client.list_state_machines()
+        for machine in resp['stateMachines']:
+            arn = machine['stateMachineArn']
+            if arn.endswith(name):
+                self.arn = arn
+                break
+
+        if self.arn is None:
+            raise HeavisideError("Could not find stepfunction {}".format(name))
+
+    @staticmethod
+    def create_name():
+        return datetime.now().strftime("%Y%m%d%H%M%s%f")
+
+    def launch(self, args):
+        resp = self.client.start_execution(stateMachineArn = self.arn,
+                                           name = self.create_name(),
+                                           input = json.dumps(args))
+        return resp['executionArn']
+
+    def status(self, arn):
+        resp = self.client.describe_execution(executionArn = arn)
+        return SFN.Status(resp)
+
+    def error(self, arn):
+        resp = self.client.get_execution_history(executionArn = arn,
+                                                 reverseOrder = True)
+        event = resp['events'][0]
+        for key in ['Failed', 'Aborted', 'TimedOut']:
+            key = 'execution{}EventDetails'.format(key)
+            if key in event:
+                return ActivityError(event[key]['error'], event[key]['cause'])
+        return HeavisideError("Unknown exception occurred in sub-process")
+
 def fanout(session, sub_sfn, sub_args, max_concurrent=50, rampup_delay=15, rampup_backoff=0.8, poll_delay=5, status_delay=1):
-    class SFN(object):
-        class Status(object):
-            __slots__ = ('resp')
-
-            def __init__(self, resp):
-                self.resp = resp
-
-            @property
-            def failed(self):
-                return self.resp['status'] == 'FAILED'
-
-            @property
-            def success(self):
-                return self.resp['status'] == 'SUCCEEDED'
-
-            @property
-            def output(self):
-                return json.loads(self.resp['output']) if 'output' in self.resp else None
-
-        def __init__(self, session, name):
-            self.client = session.client('stepfunctions')
-            self.arn = None
-
-            resp = self.client.list_state_machines()
-            for machine in resp['stateMachines']:
-                arn = machine['stateMachineArn']
-                if arn.endswith(name):
-                    self.arn = arn
-                    break
-
-            if self.arn is None:
-                raise HeavisideError("Could not find stepfunction {}".format(name))
-
-        def launch(self, args):
-            resp = self.client.start_execution(stateMachineArn = self.arn,
-                                               name = datetime.now().strftime("%Y%m%d%H%M%s%f"),
-                                               input = json.dumps(args))
-            return resp['executionArn']
-
-        def status(self, arn):
-            resp = self.client.describe_execution(executionArn = arn)
-            return SFN.Status(resp)
-
-        def error(self, arn):
-            resp = self.client.get_execution_history(executionArn = arn,
-                                                     reverseOrder = True)
-            event = resp['events'][0]
-            for key in ['Failed', 'Aborted', 'TimedOut']:
-                key = 'execution{}EventDetails'.format(key)
-                if key in event:
-                    return ActivityError(event[key]['error'], event[key]['cause'])
-            return HeavisideError("Unknown exception occurred in sub-process")
 
     log = logging.getLogger(__name__)
     sfn = SFN(session, sub_sfn)
@@ -145,7 +150,7 @@ class TaskMixin(object):
 
     def __init__(self, process=lambda x: x, **kwargs):
         """Will not be called if used as a mixin. Provides just the expected variables."""
-        client, _ = create_session(**kwargs)
+        session, _ = create_session(**kwargs)
         self.client = session.client('stepfunctions')
         self.log = logging.getLogger(__name__)
         self.process = process
@@ -303,7 +308,7 @@ class ActivityMixin(object):
 
     def __init__(self, handle_task = lambda t, i: None, **kwargs):
         """Will not be called if used as a mixin. Provides just the expected variables."""
-        client, _ = create_session(**kwargs)
+        session, _ = create_session(**kwargs)
         # DP NOTE: read_timeout is needed so that the long poll for tasking doesn't
         #          timeout client side before AWS returns that there is no work
         self.client = session.client('stepfunctions', config=Config(read_timeout=70))
@@ -333,8 +338,10 @@ class ActivityMixin(object):
 
     def run(self, name=None):
         if name is None:
+            # DP TODO: look for self.name as well
             if not hasattr(self, 'arn') or self.arn is None:
                 raise Exception("Could not locate Activity ARN to poll")
+            name = self.arn.split(':')[-1]
         else:
             if name.lower().startswith("arn:"):
                 self.arn = name
@@ -359,6 +366,11 @@ class ActivityMixin(object):
                         # DP TODO: seperate error handling for concurrent processes from handle_task
                         if results is not None:
                             results.start()
+                            # DP TODO: Need a check to make sure the subprocess/thread starts
+                            #          There can be a problem if the subprocess/thread doesn't start
+                            #          or get to its own error handling logic
+                            # ???: Maybe store workers as token : subprocess, allowing us to always try to fail
+                            #      if a given flag is not set or is false
                             self.workers.append(results)
 
                             if self.max_concurrent > 0:
@@ -382,7 +394,6 @@ class ActivityMixin(object):
                             self.log.exception("Couldn't fail task")
                             pass # Eat error. Either a problem talking with AWS or task was already finished
 
-                    # DP TODO: figure out how to limit the total number of currently running task processes
                     # DP ???: create a list of launched processes, so on terminate the handling tasks will terminate too
                     #         if so, need to figure out how to send a failure for the tasks that havn't finished...
             except KeyboardInterrupt:
@@ -427,7 +438,7 @@ class ActivityMixin(object):
         """
         if self.arn is not None:
             if exception:
-                raise Exception("Activity {} already exists".format(self.name))
+                raise Exception("Activity {} already exists".format(self.arn))
         else:
             if name is None:
                 if hasattr(self, 'name'):
@@ -451,8 +462,6 @@ class ActivityMixin(object):
             resp = self.client.delete_activity(activityArn = self.arn)
             self.arn = None
 
-
-# DP TODO: rewrite as Mixins so that Processes, Threads, and other implementations can be used
 
 class Activity(ActivityMixin, TaskMixin):
     def __init__(self, name, arn=None, worker=None, **kwargs):

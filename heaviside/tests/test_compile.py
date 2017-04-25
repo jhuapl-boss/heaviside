@@ -30,7 +30,6 @@ cur_dir = Path(os.path.dirname(os.path.realpath(__file__)))
 class TestCompile(unittest.TestCase):
     def execute(self, filename, error_msg):
         filepath = cur_dir / 'sfn' / filename
-        stderr = StringIO()
 
         try:
             out = heaviside.compile(filepath)
@@ -99,4 +98,33 @@ class TestCompile(unittest.TestCase):
 
     def test_duplicate_state_name(self):
         self.execute('error_duplicate_state_name.sfn', "Duplicate state name 'Test'")
+
+class TestTranslate(unittest.TestCase):
+    def test_lambda(self):
+        expected = 'arn:aws:lambda:region:account:function:Test'
+        actual = heaviside.create_translate('region', 'account')('Lambda', 'Test')
+
+        self.assertEqual(actual, expected)
+
+    def test_activity(self):
+        expected = 'arn:aws:states:region:account:activity:Test'
+        actual = heaviside.create_translate('region', 'account')('Activity', 'Test')
+
+        self.assertEqual(actual, expected)
+
+    def test_invalid_arg(self):
+        with self.assertRaises(TypeError):
+            heaviside.create_translate(None, None)('Lambda', 'Test')
+
+    def test_none(self):
+        expected = 'arn:aws:states:region:account:activity:Test'
+        actual = heaviside.create_translate('xxxxxx', 'xxxxxxx')('Activity', expected)
+
+        self.assertEqual(actual, expected)
+
+    def test_partial(self):
+        expected = 'arn:aws:states:region:account:activity:Test'
+        actual = heaviside.create_translate('region', 'xxxxxxx')('Activity', 'account:activity:Test')
+
+        self.assertEqual(actual, expected)
 

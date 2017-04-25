@@ -69,7 +69,7 @@ def create_translate(region, account_id):
             arn = ":".join(vals)
             return arn
         except TypeError:
-            raise TypeError("One or more of the default values for ARN '{}' was not specified".format(actual))
+            raise TypeError("One or more of the default values for {} ARN '{}' was not specified".format(type_, function))
     return _translate
 
 def compile(source, translate=None, **kwargs):
@@ -119,7 +119,7 @@ class StateMachine(object):
         self.session, self.account_id = create_session(**kwargs)
         self.region = self.session.region_name
         self.client = self.session.client('stepfunctions')
-        self._translate = create_translate(self.retion, self.account_id)
+        self._translate = create_translate(self.region, self.account_id)
 
         resp = self.client.list_state_machines()
         for machine in resp['stateMachines']:
