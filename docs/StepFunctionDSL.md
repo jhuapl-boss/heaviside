@@ -280,7 +280,7 @@ The basic `if` statement. Multiple (or no) `elif` statements can be included. Th
         input: JsonPath
         output: JsonPath
 
-The `transform` block contains the same `input` and `output` modifiers are the
+The `transform` block contains the same `input` and `output` modifiers that the
 simple states use.
 
 Modifiers:
@@ -343,7 +343,8 @@ the parallel state is an array of outputs from each branch.
             State(s)
 
 The `transform` block contains the same `input`, `result`, and `output` modifiers
-are the simple states use.
+that the simple states use.
+
 Modifiers:
 * `input`: JsonPath selecting a value from the input object to be passed to the
            first state in each parallel branch (Default: `"$"`)
