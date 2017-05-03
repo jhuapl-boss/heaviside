@@ -258,7 +258,7 @@ class ASTStateWait(ASTState):
 
 class ASTStateChoice(ASTState):
     state_type = 'Choice'
-    valid_modifiers = [ASTModInput, ASTModResult, ASTModOutput]
+    valid_modifiers = [ASTModInput, ASTModOutput]
     DEFAULT = None
 
     def __init__(self, state, comment, transform):
@@ -268,6 +268,7 @@ class ASTStateChoice(ASTState):
         # same order as in the source file
         self.branches = OrderedDict()
 
+# DP ???: Should ASTStateChoice subclasses override the state_type value?
 class ASTStateWhile(ASTStateChoice):
     def __init__(self, state, comp, block, transform):
         comment, states = block
