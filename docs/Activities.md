@@ -126,7 +126,7 @@ Currently AWS Step Functions do not support dynamic parallel execution of
 tasks. As a temporary solution there is a function `heaviside.activities.fanout`
 that helps execute a dynamic number of step functions and collect the results.
 This requires splitting the desired functionality into a seperate step function,
-but provides and easy to implement solution.
+but provides an easy to implement solution.
 
 The fanout function will execute the given step function once per input argument
 and poll the execution ARN for the results. If successful, returns are

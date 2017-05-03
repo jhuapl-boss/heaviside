@@ -278,11 +278,18 @@ The basic `if` statement. Multiple (or no) `elif` statements can be included. Th
         State(s)
     transform:
         input: JsonPath
-        result: JsonPath
         output: JsonPath
 
-The `transform` block contains the same `input`, `result`, and `output` modifiers
-are the simple states use.
+The `transform` block contains the same `input` and `output` modifiers are the
+simple states use.
+
+Modifiers:
+* `input`: JsonPath selecting a value from the input object to be passed to the
+           current state, applied before performing the comparison  (Default:
+           `"$"`)
+* `output`: JsonPath selecting a value from the output object to be passed to the
+            next state, applied before executing the first state in the selected
+            branch (Default: `"$"`)
 
 #### Switch
 The basic `switch` statement. Multiple `case` statements are compared against the
@@ -297,7 +304,6 @@ JsonPath variable in the `switch` statement. The `default` statement is optional
             State(s)
     transform:
         input: JsonPath
-        result: JsonPath
         output: JsonPath
 
 #### While Loop
@@ -310,7 +316,6 @@ is no longer true.
         State(s)
     transform:
         input: JsonPath
-        result: JsonPath
         output: JsonPath
 
 #### Parallel
@@ -336,6 +341,17 @@ the parallel state is an array of outputs from each branch.
         retry error(s) retry interval (seconds), max attempts, backoff rate
         catch error(s): JsonPath
             State(s)
+
+The `transform` block contains the same `input`, `result`, and `output` modifiers
+are the simple states use.
+Modifiers:
+* `input`: JsonPath selecting a value from the input object to be passed to the
+           first state in each parallel branch (Default: `"$"`)
+* `result`: JsonPath of where to place the array of results from each of the
+            parallel branches (before the `input` modifier was applied) (Default:
+            `"$"`)
+* `output`: JsonPath selecting a value from the output object to be passed to the
+            next state (Default: `"$"`)
 
 The `error` block contains the same `retry` and `catch` modifiers as the task state.
 
