@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-__version__ = '0.8'
+__version__ = '1.0'
 
 import os
 
@@ -45,7 +45,7 @@ setup(
     long_description=read('README.md'),
     install_requires=read('requirements.txt').split('\n'),
     classifiers=[
-        'Development Status :: 4 - Beta',
+        'Development Status :: 5 - Production/Stable',
         'Intended Audience :: Developers',
         'License :: OSI Approved :: Apache Software License',
         'Programming Language :: Python :: 3.5',
