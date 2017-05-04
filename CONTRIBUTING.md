@@ -1,7 +1,7 @@
 To get started, [sign the Contributor License Agreement](https://www.clahub.com/agreements/jhuapl-boss/heaviside)
 
 
-###The Johns Hopkins University Applied Physics Laboratory LLC
+### The Johns Hopkins University Applied Physics Laboratory LLC
 
 Individual Contributor License Agreement ("Agreement")
 
