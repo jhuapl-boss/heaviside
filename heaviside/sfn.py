@@ -17,422 +17,7 @@ from collections import OrderedDict
 
 import iso8601 # parser for timestamp format
 
-class _StateMachineEncoder(json.JSONEncoder):
-    """Custom JSONEncoder that handles the Timestamp type"""
-    def default(self, o):
-        if type(o) == Timestamp:
-            return str(o)
-        return super(_StateMachineEncoder, self).default(o)
-
-class Branch(dict):
-    """A branch of execution. A list of self contains states (only references 
-    to states within the list) and a pointer to the first state to start
-    execution on
-    """
-
-    def __init__(self, states=None, start=None):
-        """
-        Args:
-            states (None|list|dict): No States, a list of States, or dict of
-                                     States for the branch to execute
-            start (None|State|string): The first State to start execution on
-        """
-        super(Branch, self).__init__()
-        # Makes states be dumped in the same order they were added
-        # making it easier to read the output and match it to the input
-        self['States'] = OrderedDict() 
-
-        if type(states) == list:
-            for state in states:
-                self.addState(state)
-        elif type(states) == dict:
-            self['States'].update(states)
-
-        if start is not None:
-            self.setStart(start)
-
-    def setStart(self, state):
-        """Set the start State
-
-        Args:
-            state (State|string): State / Name of State to start execution on
-        """
-        self['StartAt'] = str(state)
-
-    def addState(self, state):
-        """Add a State to the list of States available to execute
-
-        Args:
-            state (State): State to add
-        """
-        self['States'][state.Name] = state
-
-
-class Machine(Branch):
-    """State Machine, consisting of a single branch of execution"""
-
-    def __init__(self, comment=None, states=None, start=None, version=None, timeout=None):
-        """
-        Args:
-            comment (string): State machine comment
-            state (list): List of States to execute
-            start (State|string): State to start execution on
-            version (string): AWS State MAchine Language version used
-            timeout (int): Overall state machine timeout
-        """
-        super(Machine, self).__init__(states, start)
-
-        if comment is not None:
-            self['Comment'] = comment
-
-        if version is not None:
-            self['Version'] = version
-
-        if timeout is not None:
-            self['TimeoutSeconds'] = timeout
-
-    def definition(self, **kwargs):
-        """Dump the state machine into the JSON format needed by AWS
-
-        Args:
-            kwargs (dict): Arguments passed to json.dumps()
-        """
-        return json.dumps(self, cls=_StateMachineEncoder, **kwargs)
-
-class State(dict):
-    """Base class for all States"""
-
-    def __init__(self, name, type_, next=None, end=None, catches=None, retries=None):
-        """
-        Args:
-            name (string): Name of the state
-            type_ (string): Type of the State
-            next (string|State): Next state to transition to
-            end = (boolean): If this state is a terminal state
-            catches (Catch|[Catch]): Catch(s) for the State
-            retires (Retry|[Retry]): Retry(s) for the State
-        """
-        super(State, self).__init__(Type = type_)
-        self.Name = name
-
-        if next is not None:
-            self['Next'] = str(next)
-
-        if end is not None:
-            self['End'] = bool(end)
-
-        if catches is not None:
-            if type(catches) != list:
-                catches = [catches]
-            self['Catch'] = catches
-
-        if retries is not None:
-            if type(retries) != list:
-                retries = [retries]
-            self['Retry'] = retries
-
-    def addCatch(self, catch):
-        """Add a Catch to this State"""
-        if 'Catch' not in self:
-            self['Catch'] = []
-        self['Catch'].add(catch)
-
-    def addRetry(self, retry):
-        """Add a Retry to this State"""
-        if 'Retry' not in self:
-            self['Retry'] = []
-        self['Retry'].add(retry)
-
-    def __str__(self):
-        return self.Name
-
-class PassState(State):
-    def __init__(self, name, **kwargs):
-        """
-        Args:
-            name (string): Name of the state
-            kwargs (dict): Arguments passed to State constructor
-        """
-        super(PassState , self).__init__(name, 'Pass', **kwargs)
-
-class SuccessState(State):
-    def __init__(self, name, **kwargs):
-        """
-        Args:
-            name (string): Name of the state
-            kwargs (dict): Arguments passed to State constructor
-        """
-        super(SuccessState, self).__init__(name, 'Succeed', **kwargs)
-
-class FailState(State):
-    def __init__(self, name, error, cause, **kwargs):
-        """
-        Args:
-            name (string): Name of the state
-            error (string): Failure error name
-            cause (string): Failure error cause
-            kwargs (dict): Arguments passed to State constructor
-        """
-        super(FailState, self).__init__(name, 'Fail', **kwargs)
-        self['Error'] = error
-        self['Cause'] = cause
-
-class TaskState(State):
-    def __init__(self, name, resource, **kwargs):
-        """
-        Args:
-            name (string): Name of the state
-            resource (string): ARN of AWS resource to invoke
-            kwargs (dict): Arguments passed to State constructor
-        """
-        super(TaskState, self).__init__(name, 'Task', **kwargs)
-        self['Resource'] = resource
-
-class WaitState(State):
-    def __init__(self, name, seconds=None, timestamp=None, timestamp_path=None, seconds_path=None, **kwargs):
-        """
-        Args:
-            name (string): Name of the state
-            seconds (int): Number of seconds to wait
-            timestamp (string|Timestamp): Timestamp to wait until
-            timestamp_path (string): JsonPath to location of timestamp
-            seconds_path (string): JsonPath to location of seconds
-            kwargs (dict): Arguments passed to State constructor
-        """
-        super(WaitState, self).__init__(name, 'Wait', **kwargs)
-
-        if seconds is not None:
-            self['Seconds'] = int(seconds)
-
-        if timestamp is not None:
-            self['Timestamp'] = str(timestamp)
-
-        if timestamp_path is not None:
-            self['TimestampPath'] = str(timestamp_path)
-
-        if seconds_path is not None:
-            self['SecondsPath'] = str(seconds_path)
-
-class ParallelState(State):
-    def __init__(self, name, branches=None, **kwargs):
-        """
-        Args:
-            name (string): Name of the state
-            branches (list): List of List of States to be executed
-            kwargs (dict): Arguments passed to State constructor
-        """
-        super(ParallelState, self).__init__(name, 'Parallel', **kwargs)
-
-        if branches is None:
-            branches = []
-        self['Branches'] = branches
-
-    def addBranch(self, branch):
-        """Add another branch of execution
-        
-        Args:
-            branch (list): List of States to execute"""
-        self['Branches'].add(branch)
-
-class ChoiceState(State):
-    def __init__(self, name, choices=None, default=None, **kwargs):
-        """
-        Args:
-            name (string): Name of the state
-            choices (Choice|[Choice]): Choice(s) that are checked and
-                                       potentially executed
-            default (string|State): Default state if no Choice matches
-            kwargs (dict): Arguments passed to State constructor
-        """
-        super(ChoiceState, self).__init__(name, 'Choice', **kwargs)
-
-        if choices is None:
-            choices = []
-        elif type(choices) != list:
-            choices = [choices]
-        self['Choices'] = choices
-
-        if default is not None:
-            self['Default'] = str(default)
-
-    def addChoice(self, choice):
-        """Add another Choice to the list of Choices to compare against"""
-        self['Choices'].add(choice)
-
-    def setDefault(self, default):
-        """Sets the default State to execute if there is no match"""
-        self['Default'] = str(default)
-
-class Choice(dict):
-    """A ChoiceState Choice wrapping a comparison and reference to state to execute"""
-
-    def __init__(self, variable, op, value, next_ = None):
-        """
-        Args:
-            variable (string): JsonPath of variable to compare
-            op (string): AWS Step Function Language operator name
-            value (int|float|string|Timestamp): value to compare against
-            next (string|State): State to execute if the comparison is True
-        """
-        super(Choice, self).__init__(Variable = variable)
-
-        self[op] = value
-        self.op = op # for __str__ / __repr__
-
-        if next_ is not None:
-            self['Next'] = str(next_)
-
-    def __str__(self):
-        return repr(self)
-
-    def __repr__(self):
-        return "({} {} {})".format(self['Variable'], self.op, self[self.op])
-
-class NotChoice(dict):
-    """Wraper around a Choice that negates the Choice"""
-
-    def __init__(self, value, next_ = None):
-        """
-        Args:
-            value (Choice): Choice to negate
-            next (string|State): State to execute if the negated comparison is True
-        """
-        super(NotChoice, self).__init__(Not = value)
-
-        if next_ is not None:
-            self['Next'] = str(next_)
-
-    def __str__(self):
-        return repr(self)
-
-    def __repr__(self):
-        return "(Not {!r})".format(self['Not'])
-
-class AndOrChoice(dict):
-    """Wrapper arounds a list of Choices and 'and's or 'or's the results together"""
-
-    def __init__(self, op, values, next_ = None):
-        """
-        Args:
-            op (string): 'and' or 'or' depending on which operator is desired
-            values (list): list of two or more Choices to combind the results of
-            next (string|State): State to execute if the whole results is True
-        """
-        super(AndOrChoice, self).__init__()
-
-        if type(values) != list:
-            values = [values]
-
-        self[op] = values
-        self.op = op # for __str__ / __repr__
-
-        if next_ is not None:
-            self['Next'] = str(next_)
-
-    def __str__(self):
-        return repr(self)
-
-    def __repr__(self):
-        vals = map(repr, self[self.op])
-        return "(" + (" {} ".format(self.op.lower())).join(vals) + ")"
-
-class Retry(dict):
-    """A retry statement that reruns a state if the given error(s) are encountered"""
-
-    def __init__(self, errors, interval, max, backoff):
-        """
-        Args:
-            errors (string|list): Error(s) to match against
-            interval (int): Initial delay (seconds) before retrying state
-            max (int): Max number to retries to attempt
-            backoff (int|float): Backoff rate applied to interval after each retry
-        """
-        if type(errors) != list:
-            errors = [errors]
-
-        super(Retry, self).__init__(ErrorEquals = errors,
-                         IntervalSeconds = int(interval),
-                         MaxAttempts = int(max),
-                         BackoffRate = float(backoff))
-
-class Catch(dict):
-    """A catch statement that executes a state when the given error(s) are encountered"""
-
-    def __init__(self, errors, next, results=None):
-        """
-        Args:
-            errors (string|list): Error(s) to match against
-            next (string|State): State to execute if a matched error is encountered
-            results (string|None): ResultPath for error information
-        """
-        if type(errors) != list:
-            errors = [errors]
-
-        super(Catch, self).__init__(ErrorEquals = errors,
-                         Next = str(next))
-
-        if results:
-            self['ResultPath'] = results
-
-def _resolve(actual, defaults):
-    """Break the actual arn apart and insert the defaults for the
-    unspecified begining parts of the arn (based on position in the
-    arn)
-
-    Example:
-        actual: 'account_id:function:FUNCTION_NAME'
-        defaults: ['arn', 'aws', 'lambda', 'region', 'account_id', 'function']
-        return: 'arn:aws:lambda:region:account_id:function:FUNCTION_NAME'
-    
-    Args:
-        actual (string): ARN style string, potentially missing part of the
-                         begining of the ARN. Must include the final name of
-                         the ARN function
-        defaults (list): List of ARN components to use to fill in the missing
-                         parts of the actual ARN
-
-    Returns:
-        (string): Complete ARN
-    """
-    actual_ = actual.split(':')
-    name = actual_.pop()
-    offset = len(defaults) - len(actual_)
-    try:
-        # Wrap the join because an error should only be produced if we try
-        # to use a None value. None can be passed in the defaults if that
-        # default value is never used
-        vals = defaults[:offset]
-        vals.extend(actual_)
-        vals.append(name)
-        arn = ":".join(vals)
-        return arn
-    except TypeError:
-        raise Exception("One or more of the default values for ARN '{}' was not specified".format(actual))
-
-
-def Lambda(name, region=None, account=None):
-    """Resolve a partial Lambda ARN into a full ARN with the given region/account
-    
-    Args:
-        name (string): Partial ARN
-        region (string): AWS region of the Lambda function
-        account (string): AWS account id owning the Labmda function
-    """
-
-    defaults = ['arn', 'aws', 'lambda', region, account, 'function']
-    return _resolve(name, defaults)
-
-def Activity(name, region=None, account=None):
-    """Resolve a partial Activity ARN into a full ARN with the given region/account
-    
-    Args:
-        name (string): Partial ARN
-        region (string): AWS region of the Activity ARN
-        account (string): AWS account id owning the Activity ARN
-    """
-
-    defaults = ['arn', 'aws', 'states', region, account, 'activity']
-    return _resolve(name, defaults)
+from .ast import ASTStateChoice, ASTCompOp, ASTCompNot, ASTCompAndOr, ASTValue
 
 class Timestamp(object):
     """Wrapper around a timestamp string.
@@ -454,4 +39,278 @@ class Timestamp(object):
 
     def __str__(self):
         return self.timestamp
+
+    def __repr__(self):
+        return "Timestamp({!r})".format(self.timestamp)
+
+class _StateMachineEncoder(json.JSONEncoder):
+    """Custom JSONEncoder that handles the Timestamp type"""
+    def default(self, o):
+        if type(o) == Timestamp:
+            return str(o)
+        return super(_StateMachineEncoder, self).default(o)
+
+class Branch(dict):
+    def __init__(self, ast):
+        super(Branch, self).__init__()
+
+        # Makes states be dumped in the same order they were added
+        # making it easier to read the output and match it to the input
+        self['States'] = OrderedDict()
+        for state in ast.states:
+            self['States'][state.name] = State(state)
+
+        self['StartAt'] = ast.states[0].name
+
+class StepFunction(Branch):
+    def __init__(self, ast):
+        super(StepFunction, self).__init__(ast)
+
+        if ast.comment is not None:
+            self['Comment'] = ast.comment.value
+
+        if ast.version is not None:
+            self['Version'] = ast.version.value.value
+
+        if ast.timeout is not None:
+            self['TimeoutSeconds'] = ast.timeout.value.value
+
+    def definition(self, **kwargs):
+        """Dump the state machine into the JSON format needed by AWS
+
+        Args:
+            kwargs (dict): Arguments passed to json.dumps()
+        """
+        return json.dumps(self, cls=_StateMachineEncoder, **kwargs)
+
+class State(dict):
+    def __init__(self, ast):
+        super(State, self).__init__()
+
+        self['Type'] = ast.state_type
+
+        # Generic Modifiers for all States
+        if ast.comment is not None:
+            # No longer a token, parsed by AST class into name/comment
+            self['Comment'] = ast.comment
+
+        if ast.timeout is not None:
+            timeout = ast.timeout.value.value
+            self['TimeoutSeconds'] = timeout
+        else:
+            timeout = 60 # default
+
+        if ast.heartbeat is not None:
+            heartbeat = ast.heartbeat.value.value
+            if not heartbeat < timeout:
+                ast.heartbeat.raise_error("Heartbeat must be less than timeout (defaults to 60)")
+            self['HeartbeatSeconds'] = heartbeat
+
+        if ast.input is not None:
+            self['InputPath'] = ast.input.value.value
+
+        if ast.result is not None:
+            self['ResultPath'] = ast.result.value.value
+
+        if ast.output is not None:
+            self['OutputPath'] = ast.output.value.value
+
+        if ast.data is not None:
+            self['Result'] = ast.data.value
+
+        if ast.catch is not None:
+            self['Catch'] = []
+            for catch in ast.catch:
+                self['Catch'].append(Catch(catch))
+
+        if ast.retry is not None:
+            self['Retry'] = []
+            for retry in ast.retry:
+                self['Retry'].append(Retry(retry))
+
+
+        # State specific arguments
+        if ast.state_type == 'Fail':
+            self['Error'] = ast.error.value
+            self['Cause'] = ast.cause.value
+
+        if ast.state_type == 'Task':
+            self['Resource'] = ast.arn.value
+
+        if ast.state_type == 'Wait':
+            key = ''.join([t.capitalize() for t in ast.type.value.split('_')])
+            self[key] = ast.val.value
+
+        if ast.state_type == 'Choice':
+            key = ASTStateChoice.DEFAULT
+            if key in ast.branches:
+                self['Default'] = ast.branches[key]
+                del ast.branches[key]
+
+            self['Choices'] = []
+            for comp in ast.branches:
+                self['Choices'].append(Choice(comp, ast.branches[comp]))
+
+        if ast.state_type == 'Parallel':
+            self['Branches'] = []
+            for branch in ast.branches:
+                self['Branches'].append(Branch(branch))
+
+        if ast.next is not None:
+            self['Next'] = ast.next
+
+        if ast.end:
+            self['End'] = ast.end
+
+class Catch(dict):
+    def __init__(self, ast):
+        super(Catch, self).__init__()
+
+        errors = ast.errors
+
+        # Support a single string for error type
+        # ??? put this transformation in AST
+        if type(errors) != list:
+            errors = [errors]
+
+        if len(errors) == 0:
+            errors = [ASTValue('States.ALL', None)]
+
+        self['ErrorEquals'] = [e.value for e in errors]
+        self['Next'] = ast.next
+
+        if ast.path is not None:
+            self['ResultPath'] = ast.path.value
+
+class Retry(dict):
+    def __init__(self, ast):
+        super(Retry, self).__init__()
+
+        errors = ast.errors
+
+        # Support a single string for error type
+        # ??? put this transformation in AST
+        if type(errors) != list:
+            errors = [errors]
+
+        if len(errors) == 0:
+            errors = [ASTValue('States.ALL', None)]
+
+        if float(ast.backoff.value) < 1.0:
+            ast.backoff.raise_error("Backoff rate should be >= 1.0")
+
+        self['ErrorEquals'] = [e.value for e in errors]
+        self['IntervalSeconds'] = ast.interval.value
+        self['MaxAttempts'] = ast.max.value
+        self['BackoffRate'] = float(ast.backoff.value)
+
+COMPARISON = {
+    '==': {
+        str: 'StringEquals',
+        int: 'NumericEquals',
+        float: 'NumericEquals',
+        bool: 'BooleanEquals',
+        Timestamp: 'TimestampEquals',
+    },
+    '<': {
+        str: 'StringLessThan',
+        int: 'NumericLessThan',
+        float: 'NumericLessThan',
+        Timestamp: 'TimestampLessThan',
+    },
+    '>': {
+        str: 'StringGreaterThan',
+        int: 'NumericGreaterThan',
+        float: 'NumericGreaterThan',
+        Timestamp: 'TimestampGreaterThan',
+    },
+    '<=': {
+        str: 'StringLessThanEquals',
+        int: 'NumericLessThanEquals',
+        float: 'NumericLessThanEquals',
+        Timestamp: 'TimestampLessThanEquals',
+    },
+    '>=': {
+        str: 'StringGreaterThanEquals',
+        int: 'NumericGreaterThanEquals',
+        float: 'NumericGreaterThanEquals',
+        Timestamp: 'TimestampGreaterThanEquals',
+    },
+}
+
+def Choice(ast, target=None):
+    if type(ast) == ASTCompOp:
+        var = ast.var.value
+        val = ast.val.value
+        op = ast.op.value
+        op_type = type(val) # The type of the operator is based on the value type
+        try:
+            if op == '!=':
+                op = COMPARISON['=='][op_type]
+                choice = OpChoice(var, op, val)
+                return NotChoice(choice, target)
+            else:
+                op = COMPARISON[op][op_type]
+                return OpChoice(var, op, val, target)
+        except KeyError:
+            msg = "Cannot make '{}' comparison with type '{}'".format(op, op_type)
+            ast.raise_error(msg)
+    elif type(ast) == ASTCompNot:
+        return NotChoice(Choice(ast.comp), target)
+    elif isinstance(ast, ASTCompAndOr):
+        return AndOrChoice(ast, target)
+    else:
+        ast.raise_error("Comparison support not implemented yet")
+
+class OpChoice(dict):
+    """A ChoiceState Choice wrapping a comparison and reference to state to execute"""
+
+    def __init__(self, var, op, val, target=None):
+        super(OpChoice, self).__init__(Variable = var)
+
+        self.op = op # for __str__ / __repr__
+        self[self.op] = val
+
+        if target is not None:
+            self['Next'] = target
+
+    def __str__(self):
+        return repr(self)
+
+    def __repr__(self):
+        return "({} {} {})".format(self['Variable'], self.op, self[self.op])
+
+class NotChoice(dict):
+    """Wraper around a Choice that negates the Choice"""
+
+    def __init__(self, comp, target=None):
+        super(NotChoice, self).__init__(Not = comp)
+
+        if target is not None:
+            self['Next'] = target
+
+    def __str__(self):
+        return repr(self)
+
+    def __repr__(self):
+        return "(Not {!r})".format(self['Not'])
+
+class AndOrChoice(dict):
+    """Wrapper arounds a list of Choices and 'and's or 'or's the results together"""
+
+    def __init__(self, ast, target=None):
+        super(AndOrChoice, self).__init__()
+
+        self.op = ast.op # for __str__ / __repr__
+        self[self.op] = [Choice(comp) for comp in ast.comps]
+
+        if target is not None:
+            self['Next'] = target
+
+    def __str__(self):
+        return repr(self)
+
+    def __repr__(self):
+        vals = map(repr, self[self.op])
+        return "(" + (" {} ".format(self.op.lower())).join(vals) + ")"
 

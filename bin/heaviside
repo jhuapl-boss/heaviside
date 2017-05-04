@@ -116,15 +116,15 @@ if __name__ == '__main__':
         sys.exit(1)
 
     credentials = {}
-    if args.credentials:
+    if args.credentials is not None:
         credentials['credentials'] = json.load(args.credentials)
-    if args.region:
+    if args.region is not None:
         credentials['region'] = args.region
-    if args.account_id:
+    if args.account_id is not None:
         credentials['account_id'] = args.account_id
-    if args.secret_key:
+    if args.secret_key is not None:
         credentials['secret_key'] = args.secret_key
-    if args.access_key:
+    if args.access_key is not None:
         credentials['access_key'] = args.access_key
 
     try:
@@ -133,7 +133,7 @@ if __name__ == '__main__':
                 if key in credentials:
                     return credentials[key]
                 if 'credentials' in credentials:
-                    for key_ in (key, 'aws_'+key):
+                    for key_ in (key, 'aws_' + key):
                         if key_ in credentials['credentials']:
                             return credentials['credentials'][key_]
                 print("Could not find {} value, using ''".format(key), file=sys.stderr)
@@ -141,10 +141,10 @@ if __name__ == '__main__':
 
             region = find_('region')
             account = find_('account_id')
+            translate = heaviside.create_translate(region, account)
 
             machine = heaviside.compile(Path(args.file),
-                                        region=region,
-                                        account_id=account,
+                                        translate = translate,
                                         indent=3)
 
             args.output.write(machine)
@@ -181,7 +181,7 @@ if __name__ == '__main__':
             else:
                 print("Execution ARN: {}".format(arn))
         else:
-            raise Exception('Unsupported command: {}'.format(args.command))
+            raise heaviside.exceptions.HeavisideError('Unsupported command: {}'.format(args.command))
     except heaviside.exceptions.HeavisideError as e:
         print(e)
         sys.exit(1)

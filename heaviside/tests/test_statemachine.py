@@ -70,7 +70,7 @@ class TestStateMachine(unittest.TestCase):
         self.assertEqual(actual, expected)
         
         calls = [
-            mock.call(sfn, 'region', '123456', machine._translate)
+            mock.call(sfn, machine._translate)
         ]
         self.assertEqual(mCompile.mock_calls, calls)
 

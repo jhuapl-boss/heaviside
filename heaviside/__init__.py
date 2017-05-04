@@ -23,17 +23,60 @@ from botocore.exceptions import ClientError
 
 from .lexer import tokenize_source
 from .parser import parse
-from .exceptions import CompileError
+from .exceptions import CompileError, HeavisideError
 from .utils import create_session, read
 
+def create_translate(region, account_id):
+    """Create translation function that will generate the full ARN URI from a
+   given Lambda or Activity name.
 
-def compile(source, region=None, account_id=None, translate=None, **kwargs):
+    Note: region / account_id can be None if those parts of the ARN are already
+          specified
+
+    Args:
+        region (string) : The region name for the ARN
+        account_id (string) : The account id for the ARN
+
+    Returns:
+        function : translate function that can be passed to compile()
+    """
+    def _translate(type_, function):
+        """Common implementation of a translate function the fills out the
+        whole ARN
+
+        Args:
+            type_ (string): Lambda | Activity
+            function (string): Name of Lambda / Activity
+
+        Returns:
+            string: ARN URI of the Lambda / Activity
+        """
+        if type_ == "Lambda":
+            defaults = ['arn', 'aws', 'lambda', region, account_id, 'function']
+        else:
+            defaults = ['arn', 'aws', 'states', region, account_id, 'activity']
+
+        parts = function.split(':')
+        name = parts.pop()
+        offset = len(defaults) - len(parts)
+        try:
+            # Wrap the join because an error should only be produced if we try
+            # to use a None value. None can be passed in the defaults if that
+            # default value is never used
+            vals = defaults[:offset]
+            vals.extend(parts)
+            vals.append(name)
+            arn = ":".join(vals)
+            return arn
+        except TypeError:
+            raise TypeError("One or more of the default values for {} ARN '{}' was not specified".format(type_, function))
+    return _translate
+
+def compile(source, translate=None, **kwargs):
     """Compile a source step function dsl file into the AWS state machine definition
 
     Args:
         source (string|Path|file object): Source of step function dsl, passed to read()
-        region (string): AWS Region for Lambda / Activity ARNs that need to be filled in
-        account_id (string): AWS Account ID for Lambda / Activity ARNs that need to be filled in
         translate (None|function): Function that translates a Lambda / Activity name before
                                    the ARN is completed
         kwargs (dict): Arguments to be passed to json.dumps() when creating the definition
@@ -50,9 +93,9 @@ def compile(source, region=None, account_id=None, translate=None, **kwargs):
             tokens = tokenize_source(fh.readline)
 
         if translate is None:
-            translate = lambda x: x
+            translate = lambda x, y: y
 
-        machine = parse(tokens, region, account_id, translate)
+        machine = parse(tokens, translate)
         def_ = machine.definition(**kwargs)
         return def_
     except CompileError as e:
@@ -73,25 +116,15 @@ class StateMachine(object):
         self.name = name
         self.arn = None
         self.session, self.account_id = create_session(**kwargs)
+        self.region = self.session.region_name
         self.client = self.session.client('stepfunctions')
+        self._translate = create_translate(self.region, self.account_id)
 
         resp = self.client.list_state_machines()
         for machine in resp['stateMachines']:
             if machine['name'] == name:
                 self.arn = machine['stateMachineArn']
                 break
-
-    def _translate(self, function):
-        """Default implementation of a function to translate Lambda/Activity names
-        before ARNs are created
-
-        Args:
-            function (string): Name of Lambda / Activity
-
-        Returns:
-            string: Name of the Lambda / Activity
-        """
-        return function
 
     def build(self, source, **kwargs):
         """Build the state machine definition from a source (file)
@@ -108,8 +141,7 @@ class StateMachine(object):
         Raises:
             CompileError: If the was a problem compiling the source
         """
-        region = self.session.region_name
-        return compile(source, region, self.account_id, self._translate, **kwargs)
+        return compile(source, self._translate, **kwargs)
 
     def _resolve_role(self, role):
         role = role.strip()
@@ -119,7 +151,7 @@ class StateMachine(object):
                 response = client.get_role(RoleName=role)
                 role = response['Role']['Arn']
             except:
-                raise Exception("Could not lookup role '{}'".format(role))
+                raise HeavisideError("Could not lookup role '{}'".format(role))
 
         return role
 
@@ -136,7 +168,7 @@ class StateMachine(object):
             CompileError: If the was a problem compiling the source
         """
         if self.arn is not None:
-            raise Exception("State Machine {} already exists".format(self.arn))
+            raise HeavisideError("State Machine {} already exists".format(self.arn))
 
         role = self._resolve_role(role)
         definition = self.build(source)
@@ -155,7 +187,7 @@ class StateMachine(object):
         """
         if self.arn is None:
             if exception:
-                raise Exception("State Machine {} doesn't exist yet".format(self.name))
+                raise HeavisideError("State Machine {} doesn't exist yet".format(self.name))
         else:
             resp = self.client.delete_state_machine(stateMachineArn = self.arn)
             self.arn = None
@@ -173,7 +205,7 @@ class StateMachine(object):
             string: ARN of the state machine execution, used to get status and output data
         """
         if self.arn is None:
-            raise Exception("State Machine {} doesn't exist yet".format(self.name))
+            raise HeavisideError("State Machine {} doesn't exist yet".format(self.name))
 
         input_ = json.dumps(input_)
 
@@ -222,7 +254,7 @@ class StateMachine(object):
             dict: Dict of Json data
 
         Exceptions:
-            Exception: If there was an error getting the failure message
+            HeavisideError: If there was an error getting the failure message
         """
         while True:
             resp = self.client.describe_execution(executionArn = arn)
@@ -237,7 +269,7 @@ class StateMachine(object):
                         key = 'execution{}EventDetails'.format(key)
                         if key in event:
                             return event[key]
-                    raise Exception("Could not locate error output for execution '{}'".format(arn))
+                    raise HeavisideError("Could not locate error output for execution '{}'".format(arn))
             else:
                 time.sleep(period)
 

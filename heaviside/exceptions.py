@@ -12,11 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# DP ???: Should this be a subclass of HeavisideError?
 class ActivityError(Exception):
     def __init__(self, error, cause):
         super(ActivityError, self).__init__(cause)
         self.error = error
         self.cause = cause
+
+    def __str__(self):
+        return "{}: {}".format(self.error, self.cause)
 
 class HeavisideError(Exception):
     """Base class for all Heaviside errors"""
@@ -44,6 +48,7 @@ class CompileError(HeavisideError):
         self.msg = msg
 
     def __str__(self):
+        # produce a Python style Syntax Error for display
         lines = []
         lines.append('File "{}", line {}'.format(self.source, self.lineno))
         # Note: Using format because of Python 2.7 string types

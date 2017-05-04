@@ -30,13 +30,12 @@ cur_dir = Path(os.path.dirname(os.path.realpath(__file__)))
 class TestCompile(unittest.TestCase):
     def execute(self, filename, error_msg):
         filepath = cur_dir / 'sfn' / filename
-        stderr = StringIO()
 
         try:
             out = heaviside.compile(filepath)
             self.assertFalse(True, "compile() should result in an exception")
         except heaviside.exceptions.CompileError as ex:
-            actual = str(ex).split('\n')[3]
+            actual = str(ex).split('\n')[-1]
             expected = "Syntax Error: {}".format(error_msg)
             self.assertEqual(actual, expected)
 
@@ -47,32 +46,85 @@ class TestCompile(unittest.TestCase):
         self.execute('error_unterminated_multiquote.sfn', 'EOF in multi-line string')
 
     def test_invalid_heartbeat(self):
-        self.execute('error_invalid_heartbeat.sfn', "Modifier 'heartbeat' must be less than 'timeout'")
+        self.execute('error_invalid_heartbeat.sfn', "Heartbeat must be less than timeout (defaults to 60)")
+
+    def test_invalid_heartbeat2(self):
+        self.execute('error_invalid_heartbeat2.sfn', "'0' is not a positive integer")
+
+    def test_invalid_timeout(self):
+        self.execute('error_invalid_timeout.sfn', "'0' is not a positive integer")
 
     def test_unexpected_catch(self):
-        self.execute('error_unexpected_catch.sfn', "Invalid modifier 'catch'")
+        self.execute('error_unexpected_catch.sfn', "Pass state cannot contain a Catch modifier")
 
     def test_unexpected_data(self):
-        self.execute('error_unexpected_data.sfn', "Invalid modifier 'data'")
+        self.execute('error_unexpected_data.sfn', "Succeed state cannot contain a Data modifier")
 
     def test_unexpected_heartbeat(self):
-        self.execute('error_unexpected_heartbeat.sfn', "Invalid modifier 'heartbeat'")
+        self.execute('error_unexpected_heartbeat.sfn', "Pass state cannot contain a Heartbeat modifier")
 
     def test_unexpected_input(self):
-        self.execute('error_unexpected_input.sfn', "Invalid modifier 'input'")
+        self.execute('error_unexpected_input.sfn', "Fail state cannot contain a Input modifier")
 
     def test_unexpected_output(self):
-        self.execute('error_unexpected_output.sfn', "Invalid modifier 'output'")
+        self.execute('error_unexpected_output.sfn', "Fail state cannot contain a Output modifier")
 
     def test_unexpected_result(self):
-        self.execute('error_unexpected_result.sfn', "Invalid modifier 'result'")
+        self.execute('error_unexpected_result.sfn', "Fail state cannot contain a Result modifier")
 
     def test_unexpected_retry(self):
-        self.execute('error_unexpected_retry.sfn', "Invalid modifier 'retry'")
+        self.execute('error_unexpected_retry.sfn', "Pass state cannot contain a Retry modifier")
 
     def test_unexpected_timeout(self):
-        self.execute('error_unexpected_timeout.sfn', "Invalid modifier 'timeout'")
+        self.execute('error_unexpected_timeout.sfn', "Pass state cannot contain a Timeout modifier")
 
     def test_unexpected_token(self):
         self.execute('error_unexpected_token.sfn', 'Invalid syntax')
+
+    def test_invalid_retry_delay(self):
+        self.execute('error_invalid_retry_delay.sfn', "'0' is not a positive integer")
+
+    def test_invalid_retry_backoff(self):
+        self.execute('error_invalid_retry_backoff.sfn', "Backoff rate should be >= 1.0")
+
+    def test_invalid_wait_seconds(self):
+        self.execute('error_invalid_wait_seconds.sfn', "'0' is not a positive integer")
+
+    def test_invalid_multiple_input(self):
+        self.execute('error_invalid_multiple_input.sfn', "Pass state can only contain one Input modifier")
+
+    def test_invalid_state_name(self):
+        self.execute('error_invalid_state_name.sfn', "Name exceedes 128 characters")
+
+    def test_duplicate_state_name(self):
+        self.execute('error_duplicate_state_name.sfn', "Duplicate state name 'Test'")
+
+class TestTranslate(unittest.TestCase):
+    def test_lambda(self):
+        expected = 'arn:aws:lambda:region:account:function:Test'
+        actual = heaviside.create_translate('region', 'account')('Lambda', 'Test')
+
+        self.assertEqual(actual, expected)
+
+    def test_activity(self):
+        expected = 'arn:aws:states:region:account:activity:Test'
+        actual = heaviside.create_translate('region', 'account')('Activity', 'Test')
+
+        self.assertEqual(actual, expected)
+
+    def test_invalid_arg(self):
+        with self.assertRaises(TypeError):
+            heaviside.create_translate(None, None)('Lambda', 'Test')
+
+    def test_none(self):
+        expected = 'arn:aws:states:region:account:activity:Test'
+        actual = heaviside.create_translate('xxxxxx', 'xxxxxxx')('Activity', expected)
+
+        self.assertEqual(actual, expected)
+
+    def test_partial(self):
+        expected = 'arn:aws:states:region:account:activity:Test'
+        actual = heaviside.create_translate('region', 'xxxxxxx')('Activity', 'account:activity:Test')
+
+        self.assertEqual(actual, expected)
 

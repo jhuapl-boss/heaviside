@@ -38,8 +38,9 @@ class MockSession(object):
 
         self.clients = {}
         self.kwargs = kwargs
+        self.region_name = "region"
 
-    def client(self, name):
+    def client(self, name, config=None):
         """Create a new client session
 
         Args:

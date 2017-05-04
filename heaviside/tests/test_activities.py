@@ -25,8 +25,13 @@ except ImportError:
 
 from .utils import MockPath, MockSession
 
-from heaviside.activities import TaskProcess, ActivityProcess
+from heaviside.activities import TaskMixin, ActivityMixin, fanout, SFN
 from heaviside.exceptions import ActivityError
+
+# Suppress message about not handler for log messages
+import logging
+log = logging.getLogger("heaviside.activities")
+log.addHandler(logging.NullHandler())
 
 class TimeoutError(ClientError):
     def __init__(self):
@@ -42,14 +47,176 @@ class TimeoutError(ClientError):
 class BossError(Exception):
     pass
 
-class TestTaskProcess(unittest.TestCase):
+class TestFanout(unittest.TestCase):
+    @mock.patch.object(SFN, 'create_name')
+    @mock.patch('heaviside.activities.time.sleep')
+    def test_args_generator(self, mSleep, mCreateName):
+        mCreateName.return_value = 'ZZZ'
+        iSession = MockSession()
+        client = iSession.client('stepfunctions')
+        client.list_state_machines.return_value = {
+            'stateMachines':[{
+                'stateMachineArn': 'XXX'
+            }]
+        }
+        client.start_execution.return_value = {
+            'executionArn': 'YYY'
+        }
+        client.describe_execution.return_value = {
+            'status': 'SUCCEEDED',
+            'output': 'null'
+        }
+
+        expected = [None]
+        actual = fanout(iSession,
+                        'XXX',
+                        (i for i in range(0,1)))
+
+        self.assertEqual(actual, expected)
+
+        calls = [
+            mock.call.list_state_machines(),
+            mock.call.start_execution(stateMachineArn = 'XXX',
+                                      name = 'ZZZ',
+                                      input = '0'),
+            mock.call.describe_execution(executionArn = 'YYY')
+        ]
+
+        self.assertEqual(client.mock_calls, calls)
+
+    @mock.patch.object(SFN, 'create_name')
+    @mock.patch('heaviside.activities.time.sleep')
+    def test_args_list(self, mSleep, mCreateName):
+        mCreateName.return_value = 'ZZZ'
+        iSession = MockSession()
+        client = iSession.client('stepfunctions')
+        client.list_state_machines.return_value = {
+            'stateMachines':[{
+                'stateMachineArn': 'XXX'
+            }]
+        }
+        client.start_execution.return_value = {
+            'executionArn': 'YYY'
+        }
+        client.describe_execution.return_value = {
+            'status': 'SUCCEEDED',
+            'output': 'null'
+        }
+
+        expected = [None]
+        actual = fanout(iSession,
+                        'XXX',
+                        [i for i in range(0,1)])
+
+        self.assertEqual(actual, expected)
+
+        calls = [
+            mock.call.list_state_machines(),
+            mock.call.start_execution(stateMachineArn = 'XXX',
+                                      name = 'ZZZ',
+                                      input = '0'),
+            mock.call.describe_execution(executionArn = 'YYY')
+        ]
+
+        self.assertEqual(client.mock_calls, calls)
+
+    @mock.patch.object(SFN, 'create_name')
+    @mock.patch('heaviside.activities.time.sleep')
+    def test_gt_concurrent(self, mSleep, mCreateName):
+        mCreateName.return_value = 'ZZZ'
+        iSession = MockSession()
+        client = iSession.client('stepfunctions')
+        client.list_state_machines.return_value = {
+            'stateMachines':[{
+                'stateMachineArn': 'XXX'
+            }]
+        }
+        client.start_execution.return_value = {
+            'executionArn': 'YYY'
+        }
+        client.describe_execution.return_value = {
+            'status': 'SUCCEEDED',
+            'output': 'null'
+        }
+
+        expected = [None, None]
+        actual = fanout(iSession,
+                        'XXX',
+                        [i for i in range(0,2)],
+                        max_concurrent=1)
+
+        self.assertEqual(actual, expected)
+
+        calls = [
+            mock.call.list_state_machines(),
+            mock.call.start_execution(stateMachineArn = 'XXX',
+                                      name = 'ZZZ',
+                                      input = '0'),
+            mock.call.describe_execution(executionArn = 'YYY'),
+            mock.call.start_execution(stateMachineArn = 'XXX',
+                                      name = 'ZZZ',
+                                      input = '1'),
+            mock.call.describe_execution(executionArn = 'YYY'),
+        ]
+
+        self.assertEqual(client.mock_calls, calls)
+
+    @mock.patch.object(SFN, 'create_name')
+    @mock.patch('heaviside.activities.time.sleep')
+    def test_sfn_error(self, mSleep, mCreateName):
+        mCreateName.return_value = 'ZZZ'
+        iSession = MockSession()
+        client = iSession.client('stepfunctions')
+        client.list_state_machines.return_value = {
+            'stateMachines':[{
+                'stateMachineArn': 'XXX'
+            }]
+        }
+        client.start_execution.return_value = {
+            'executionArn': 'YYY'
+        }
+        client.describe_execution.return_value = {
+            'status': 'FAILED',
+        }
+        client.get_execution_history.return_value = {
+            'events':[{
+                'executionFailedEventDetails':{
+                    'error': 'error',
+                    'cause': 'cause'
+                }
+            }]
+        }
+
+        try:
+            fanout(iSession,
+                   'XXX',
+                   [i for i in range(0,1)])
+            self.assertFalse(True, "fanout should result in an ActivityError")
+        except ActivityError as e:
+            self.assertEqual(e.error, 'error')
+            self.assertEqual(e.cause, 'cause')
+
+        calls = [
+            mock.call.list_state_machines(),
+            mock.call.start_execution(stateMachineArn = 'XXX',
+                                      name = 'ZZZ',
+                                      input = '0'),
+            mock.call.describe_execution(executionArn = 'YYY'),
+            mock.call.get_execution_history(executionArn = 'YYY',
+                                            reverseOrder = True)
+        ]
+
+        self.assertEqual(client.mock_calls, calls)
+
+class TestTaskMixin(unittest.TestCase):
     @mock.patch('heaviside.activities.create_session', autospec=True)
     def test_success(self, mCreateSession):
         iSession = MockSession()
         client = iSession.client('stepfunctions')
         mCreateSession.return_value = (iSession, '123456')
 
-        task = TaskProcess('worker', 'token', 'null')
+        task = TaskMixin()
+        task.token = 'token'
         
         self.assertEqual(task.token, 'token')
 
@@ -65,7 +232,7 @@ class TestTaskProcess(unittest.TestCase):
         iSession = MockSession()
         mCreateSession.return_value = (iSession, '123456')
 
-        task = TaskProcess('worker', None, 'null')
+        task = TaskMixin()
         
         with self.assertRaises(Exception):
             task.success(None)
@@ -80,7 +247,8 @@ class TestTaskProcess(unittest.TestCase):
         client = iSession.client('stepfunctions')
         client.send_task_success.side_effect = TimeoutError()
 
-        task = TaskProcess('worker', 'token', 'null')
+        task = TaskMixin()
+        task.token = 'token'
 
         task.success(None)
 
@@ -92,7 +260,8 @@ class TestTaskProcess(unittest.TestCase):
         client = iSession.client('stepfunctions')
         mCreateSession.return_value = (iSession, '123456')
 
-        task = TaskProcess('worker', 'token', 'null')
+        task = TaskMixin()
+        task.token = 'token'
         
         self.assertEqual(task.token, 'token')
 
@@ -109,7 +278,7 @@ class TestTaskProcess(unittest.TestCase):
         iSession = MockSession()
         mCreateSession.return_value = (iSession, '123456')
 
-        task = TaskProcess('worker', None, 'null')
+        task = TaskMixin()
         
         with self.assertRaises(Exception):
             task.failure(None, None)
@@ -124,7 +293,8 @@ class TestTaskProcess(unittest.TestCase):
         client = iSession.client('stepfunctions')
         client.send_task_failure.side_effect = TimeoutError()
 
-        task = TaskProcess('worker', 'token', 'null')
+        task = TaskMixin()
+        task.token = 'token'
 
         task.failure(None, None)
 
@@ -136,7 +306,8 @@ class TestTaskProcess(unittest.TestCase):
         client = iSession.client('stepfunctions')
         mCreateSession.return_value = (iSession, '123456')
 
-        task = TaskProcess('worker', 'token', 'null')
+        task = TaskMixin()
+        task.token = 'token'
         task.heartbeat()
 
         call = mock.call.send_task_heartbeat(taskToken = 'token')
@@ -147,7 +318,7 @@ class TestTaskProcess(unittest.TestCase):
         iSession = MockSession()
         mCreateSession.return_value = (iSession, '123456')
 
-        task = TaskProcess('worker', None, 'null')
+        task = TaskMixin()
         
         with self.assertRaises(Exception):
             task.heartbeat()
@@ -158,14 +329,8 @@ class TestTaskProcess(unittest.TestCase):
         mCreateSession.return_value = (iSession, '123456')
         client = iSession.client('stepfunctions')
 
-        target = mock.MagicMock()
-        target.return_value = None
-
-        task = TaskProcess('worker', 'token', 'null', target)
-
-        self.assertEqual(task.token, 'token')
-
-        task.run()
+        task = TaskMixin()
+        task.handle_task('token', None)
 
         self.assertEqual(task.token, None)
         call = mock.call.send_task_success(taskToken = 'token',
@@ -186,11 +351,8 @@ class TestTaskProcess(unittest.TestCase):
         # Just make sure the target is actually a generator
         self.assertEqual(type(target(None)), types.GeneratorType)
 
-        task = TaskProcess('worker', 'token', 'null', target)
-
-        self.assertEqual(task.token, 'token')
-
-        task.run()
+        task = TaskMixin(process = target)
+        task.handle_task('token', None)
 
         self.assertEqual(task.token, None)
         call = mock.call.send_task_success(taskToken = 'token',
@@ -208,11 +370,8 @@ class TestTaskProcess(unittest.TestCase):
         target = mock.MagicMock()
         target.side_effect = ActivityError('error', 'cause')
 
-        task = TaskProcess('worker', 'token', 'null', target)
-
-        self.assertEqual(task.token, 'token')
-
-        task.run()
+        task = TaskMixin(process = target)
+        task.handle_task('token', None)
 
         self.assertEqual(task.token, None)
         call = mock.call.send_task_failure(taskToken = 'token',
@@ -229,11 +388,8 @@ class TestTaskProcess(unittest.TestCase):
         target = mock.MagicMock()
         target.side_effect = BossError('cause')
 
-        task = TaskProcess('worker', 'token', 'null', target)
-
-        self.assertEqual(task.token, 'token')
-
-        task.run()
+        task = TaskMixin(process = target)
+        task.handle_task('token', None)
 
         self.assertEqual(task.token, None)
         call = mock.call.send_task_failure(taskToken = 'token',
@@ -250,16 +406,14 @@ class TestTaskProcess(unittest.TestCase):
         target = mock.MagicMock()
         target.side_effect = TimeoutError()
 
-        task = TaskProcess('worker', 'token', 'null', target)
-
-        self.assertEqual(task.token, 'token')
-
-        task.run()
+        task = TaskMixin(process = target)
+        task.handle_task('token', None)
 
         self.assertEqual(task.token, None)
         self.assertEqual(client.mock_calls, [])
 
-class TestActivityProcess(unittest.TestCase):
+class TestActivityMixin(unittest.TestCase):
+    """
     @mock.patch('heaviside.activities.create_session', autospec=True)
     def test_constructor(self, mCreateSession):
         iSession = MockSession()
@@ -280,111 +434,81 @@ class TestActivityProcess(unittest.TestCase):
             mock.call.list_activities()
         ]
         self.assertEqual(client.mock_calls, calls)
+    """
 
     # DP ???: How to test the import
 
     @mock.patch('heaviside.activities.create_session', autospec=True)
-    def test_create(self, mCreateSession):
+    def test_create_activity(self, mCreateSession):
         iSession = MockSession()
         mCreateSession.return_value = (iSession, '123456')
         client = iSession.client('stepfunctions')
-        client.list_activities.return_value = {
-            'activities':[{
-                'name': 'name',
-                'activityArn': None
-            }]
-        }
         client.create_activity.return_value = {
             'activityArn': 'XXX'
         }
 
-        activity = ActivityProcess('name', None)
+        activity = ActivityMixin()
 
         self.assertEqual(activity.arn, None)
 
-        activity.create()
+        activity.create_activity('name')
 
         self.assertEqual(activity.arn, 'XXX')
 
         calls = [
-            mock.call.list_activities(),
             mock.call.create_activity(name = 'name')
         ]
         self.assertEqual(client.mock_calls, calls)
 
     @mock.patch('heaviside.activities.create_session', autospec=True)
-    def test_create_exists(self, mCreateSession):
+    def test_create_activity_exists(self, mCreateSession):
         iSession = MockSession()
         mCreateSession.return_value = (iSession, '123456')
         client = iSession.client('stepfunctions')
-        client.list_activities.return_value = {
-            'activities':[{
-                'name': 'name',
-                'activityArn': 'XXX'
-            }]
-        }
 
-        activity = ActivityProcess('name', None)
+        activity = ActivityMixin()
+        activity.arn = 'XXX'
 
-        self.assertEqual(activity.arn, 'XXX')
-
-        activity.create()
+        activity.create_activity()
 
         self.assertEqual(activity.arn, 'XXX')
 
         calls = [
-            mock.call.list_activities(),
         ]
         self.assertEqual(client.mock_calls, calls)
 
     @mock.patch('heaviside.activities.create_session', autospec=True)
-    def test_create_exception(self, mCreateSession):
+    def test_create_activity_exception(self, mCreateSession):
         iSession = MockSession()
         mCreateSession.return_value = (iSession, '123456')
         client = iSession.client('stepfunctions')
-        client.list_activities.return_value = {
-            'activities':[{
-                'name': 'name',
-                'activityArn': 'XXX'
-            }]
-        }
 
-        activity = ActivityProcess('name', None)
-
-        self.assertEqual(activity.arn, 'XXX')
+        activity = ActivityMixin()
+        activity.arn = 'XXX'
 
         with self.assertRaises(Exception):
-            activity.create(True)
+            activity.create_activity(exception=True)
 
         self.assertEqual(activity.arn, 'XXX')
 
         calls = [
-            mock.call.list_activities(),
         ]
         self.assertEqual(client.mock_calls, calls)
 
     @mock.patch('heaviside.activities.create_session', autospec=True)
-    def test_delete(self, mCreateSession):
+    def test_delete_activity(self, mCreateSession):
         iSession = MockSession()
         mCreateSession.return_value = (iSession, '123456')
         client = iSession.client('stepfunctions')
-        client.list_activities.return_value = {
-            'activities':[{
-                'name': 'name',
-                'activityArn': 'XXX'
-            }]
-        }
 
-        activity = ActivityProcess('name', None)
+        activity = ActivityMixin()
+        activity.arn = 'XXX'
 
-        self.assertEqual(activity.arn, 'XXX')
-
-        activity.delete()
+        activity.delete_activity()
 
         self.assertEqual(activity.arn, None)
 
         calls = [
-            mock.call.list_activities(),
             mock.call.delete_activity(activityArn = 'XXX')
         ]
         self.assertEqual(client.mock_calls, calls)
@@ -394,126 +518,97 @@ class TestActivityProcess(unittest.TestCase):
         iSession = MockSession()
         mCreateSession.return_value = (iSession, '123456')
         client = iSession.client('stepfunctions')
-        client.list_activities.return_value = {
-            'activities':[{
-                'name': 'name',
-                'activityArn': None
-            }]
-        }
 
-        activity = ActivityProcess('name', None)
+        activity = ActivityMixin()
 
         self.assertEqual(activity.arn, None)
 
-        activity.delete()
+        activity.delete_activity()
 
         self.assertEqual(activity.arn, None)
 
         calls = [
-            mock.call.list_activities(),
         ]
         self.assertEqual(client.mock_calls, calls)
 
     @mock.patch('heaviside.activities.create_session', autospec=True)
-    def test_delete_exception(self, mCreateSession):
+    def test_delete_activity_exception(self, mCreateSession):
         iSession = MockSession()
         mCreateSession.return_value = (iSession, '123456')
         client = iSession.client('stepfunctions')
-        client.list_activities.return_value = {
-            'activities':[{
-                'name': 'name',
-                'activityArn': None
-            }]
-        }
 
-        activity = ActivityProcess('name', None)
+        activity = ActivityMixin()
 
         self.assertEqual(activity.arn, None)
 
         with self.assertRaises(Exception):
-            activity.delete(True)
+            activity.delete_activity(exception=True)
 
         self.assertEqual(activity.arn, None)
 
         calls = [
-            mock.call.list_activities(),
         ]
         self.assertEqual(client.mock_calls, calls)
 
     @mock.patch('heaviside.activities.create_session', autospec=True)
-    def test_task_exception(self, mCreateSession):
+    def test_poll_task_exception(self, mCreateSession):
         iSession = MockSession()
         mCreateSession.return_value = (iSession, '123456')
         client = iSession.client('stepfunctions')
-        client.list_activities.return_value = {
-            'activities':[{
-                'name': 'name',
-                'activityArn': None
-            }]
-        }
 
-        activity = ActivityProcess('name', None)
+        activity = ActivityMixin()
+
+        self.assertEqual(activity.arn, None)
 
         with self.assertRaises(Exception):
-            activity.task('worker')
+            activity.poll_task(worker = 'worker')
 
         calls = [
-            mock.call.list_activities(),
         ]
         self.assertEqual(client.mock_calls, calls)
 
     @mock.patch('heaviside.activities.create_session', autospec=True)
-    def test_task(self, mCreateSession):
+    def test_poll_task(self, mCreateSession):
         iSession = MockSession()
         mCreateSession.return_value = (iSession, '123456')
         client = iSession.client('stepfunctions')
-        client.list_activities.return_value = {
-            'activities':[{
-                'name': 'name',
-                'activityArn': 'XXX'
-            }]
-        }
         client.get_activity_task.return_value = {
             'taskToken': 'YYY',
             'input': '{}'
         }
 
-        activity = ActivityProcess('name', None)
-        token,  input_ = activity.task('worker')
+        activity = ActivityMixin()
+        activity.arn = 'XXX'
+
+        token,  input_ = activity.poll_task('worker')
 
         self.assertEqual(token, 'YYY')
         self.assertEqual(input_, {})
 
         calls = [
-            mock.call.list_activities(),
             mock.call.get_activity_task(activityArn = 'XXX',
                                         workerName = 'worker')
         ]
         self.assertEqual(client.mock_calls, calls)
 
     @mock.patch('heaviside.activities.create_session', autospec=True)
-    def test_task_no_work(self, mCreateSession):
+    def test_poll_task_no_work(self, mCreateSession):
         iSession = MockSession()
         mCreateSession.return_value = (iSession, '123456')
         client = iSession.client('stepfunctions')
-        client.list_activities.return_value = {
-            'activities':[{
-                'name': 'name',
-                'activityArn': 'XXX'
-            }]
-        }
         client.get_activity_task.return_value = {
             'taskToken': ''
         }
 
-        activity = ActivityProcess('name', None)
-        token,  input_ = activity.task('worker')
+        activity = ActivityMixin()
+        activity.arn = 'XXX'
+
+        token,  input_ = activity.poll_task('worker')
 
         self.assertEqual(token, None)
         self.assertEqual(input_, None)
 
         calls = [
-            mock.call.list_activities(),
             mock.call.get_activity_task(activityArn = 'XXX',
                                         workerName = 'worker')
         ]
@@ -539,14 +634,14 @@ class TestActivityProcess(unittest.TestCase):
 
         target = mock.MagicMock()
 
-        activity = ActivityProcess('name', target)
+        activity = ActivityMixin(handle_task = target)
 
         def stop_loop(*args, **kwargs):
-            activity.running = False
+            activity.polling = False
             return mock.DEFAULT
         target.side_effect = stop_loop
 
-        activity.run()
+        activity.run('name')
 
         calls = [
             mock.call.list_activities(),
@@ -556,7 +651,7 @@ class TestActivityProcess(unittest.TestCase):
         self.assertEqual(client.mock_calls, calls)
 
         calls = [
-            mock.call('name-XXX', 'YYY', {}),
+            mock.call('YYY', {}),
             mock.call().start()
         ]
         self.assertEqual(target.mock_calls, calls)
@@ -575,14 +670,14 @@ class TestActivityProcess(unittest.TestCase):
             }]
         }
 
-        activity = ActivityProcess('name', None)
+        activity = ActivityMixin()
 
         def stop_loop(*args, **kwargs):
-            activity.running = False
+            activity.polling = False
             raise BossError(None)
         client.get_activity_task.side_effect = stop_loop
 
-        activity.run()
+        activity.run('name')
 
         calls = [
             mock.call.list_activities(),

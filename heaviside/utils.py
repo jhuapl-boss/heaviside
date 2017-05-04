@@ -30,6 +30,7 @@ except ImportError:
     import os
 
     class Path(object):
+        """Stub Path object that implements only the features used by heaviside"""
         def __init__(self, path = '/'):
             self.path = path
 
