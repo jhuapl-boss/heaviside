@@ -143,6 +143,16 @@ def fanout(session, sub_sfn, sub_args, max_concurrent=50, rampup_delay=15, rampu
     executions fail, the error information is located and an ActivityError
     is raised.
 
+    NOTE: Currently all state is maintained in memory, if there is an exception
+          fanout will attempt to stop all currently executing sub_sfn. Any
+          problems stopping currently executing sub_sfn will be logged.
+    NOTE: Currently fanout works best with stateless / idempotent sub_sfn or
+          sub_sfn where the caller can cleanup state in the case of an error.
+    NOTE: AWS polling limits are a 200 unit bucket per account, refilling at 1 unit
+          per second. The arguments max_concurent, poll_delay, and status_delay
+          can be used to limit the AWS request rate of fanout to a rate that
+          will not exceed the AWS polling limits
+
     Args:
         session (boto3.session) : Active session for communicating with AWS
         sub_sfn (String) : Name or full ARN of StepFunction to execute
