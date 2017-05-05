@@ -172,12 +172,14 @@ class TestFanout(unittest.TestCase):
                 'stateMachineArn': 'XXX'
             }]
         }
-        client.start_execution.return_value = {
-            'executionArn': 'YYY'
-        }
-        client.describe_execution.return_value = {
-            'status': 'FAILED',
-        }
+        client.start_execution.side_effect = [
+            { 'executionArn': 'YYY' },
+            { 'executionArn': 'YYYY' }
+        ]
+        client.describe_execution.side_effect = [
+            { 'status': 'FAILED' },
+            { 'status': 'RUNNING' }
+        ]
         client.get_execution_history.return_value = {
             'events':[{
                 'executionFailedEventDetails':{
@@ -190,7 +192,7 @@ class TestFanout(unittest.TestCase):
         try:
             fanout(iSession,
                    'XXX',
-                   [i for i in range(0,1)])
+                   [i for i in range(0,2)])
             self.assertFalse(True, "fanout should result in an ActivityError")
         except ActivityError as e:
             self.assertEqual(e.error, 'error')
@@ -201,9 +203,16 @@ class TestFanout(unittest.TestCase):
             mock.call.start_execution(stateMachineArn = 'XXX',
                                       name = 'ZZZ',
                                       input = '0'),
+            mock.call.start_execution(stateMachineArn = 'XXX',
+                                      name = 'ZZZ',
+                                      input = '1'),
             mock.call.describe_execution(executionArn = 'YYY'),
             mock.call.get_execution_history(executionArn = 'YYY',
-                                            reverseOrder = True)
+                                            reverseOrder = True),
+            mock.call.describe_execution(executionArn = 'YYYY'),
+            mock.call.stop_execution(executionArn = 'YYYY',
+                                     error = "Heaviside.Fanout",
+                                     cause = "Sub-process error detected")
         ]
 
         self.assertEqual(client.mock_calls, calls)
