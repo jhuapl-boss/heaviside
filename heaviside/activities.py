@@ -466,11 +466,8 @@ class ActivityMixin(object):
         """Generate a unique worker name"""
         rand = ''.join(random.sample(CHARS, 6))
 
-        if name is None:
-            name = self.name
-
-        if name is not None:
-            rand = name + '-' + rand
+        if self.name is not None:
+            rand = self.name + '-' + rand
 
         return rand
 
@@ -493,7 +490,7 @@ class ActivityMixin(object):
             else:
                 self.arn = self.lookup_activity_arn(name)
                 self.name = name
-                self.create_activity(name)
+                self.create_activity()
 
         # Storage for currently executing workers
         self.workers = []

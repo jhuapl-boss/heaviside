@@ -32,6 +32,7 @@ from heaviside.exceptions import ActivityError
 import logging
 log = logging.getLogger("heaviside.activities")
 log.addHandler(logging.NullHandler())
+#log.addHandler(logging.StreamHandler())
 
 class TimeoutError(ClientError):
     def __init__(self):
@@ -457,10 +458,11 @@ class TestActivityMixin(unittest.TestCase):
         }
 
         activity = ActivityMixin()
+        activity.name = 'name'
 
         self.assertEqual(activity.arn, None)
 
-        activity.create_activity('name')
+        activity.create_activity()
 
         self.assertEqual(activity.arn, 'XXX')
 
