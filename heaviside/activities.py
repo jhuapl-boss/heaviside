@@ -124,6 +124,17 @@ class SFN(object):
                 return ActivityError(event[key]['error'], event[key]['cause'])
         return ActivityError("Heaviside.Unknown", "Unknown exception occurred in sub-process")
 
+    def cancel(self, arn):
+        """Cancel the given execution
+
+        Args:
+            arn (string): ARN of the execution to cancel
+        """
+        resp = self.client.stop_execution(executionArn = arn,
+                                          error = "Heaviside.Fanout",
+                                          cause = "Sub-process error detected")
+
+
 def fanout(session, sub_sfn, sub_args, max_concurrent=50, rampup_delay=15, rampup_backoff=0.8, poll_delay=5, status_delay=1):
     """Activity helper method for executing a dynamic number of StepFunctions
     and returning the results.
@@ -131,6 +142,16 @@ def fanout(session, sub_sfn, sub_args, max_concurrent=50, rampup_delay=15, rampu
     Executes the sub_sfn for each sub_args element. If any of the sub_sfn
     executions fail, the error information is located and an ActivityError
     is raised.
+
+    NOTE: Currently all state is maintained in memory, if there is an exception
+          fanout will attempt to stop all currently executing sub_sfn. Any
+          problems stopping currently executing sub_sfn will be logged.
+    NOTE: Currently fanout works best with stateless / idempotent sub_sfn or
+          sub_sfn where the caller can cleanup state in the case of an error.
+    NOTE: AWS polling limits are a 200 unit bucket per account, refilling at 1 unit
+          per second. The arguments max_concurent, poll_delay, and status_delay
+          can be used to limit the AWS request rate of fanout to a rate that
+          will not exceed the AWS polling limits
 
     Args:
         session (boto3.session) : Active session for communicating with AWS
@@ -173,41 +194,57 @@ def fanout(session, sub_sfn, sub_args, max_concurrent=50, rampup_delay=15, rampu
     if not isinstance(sub_args, types.GeneratorType):
         sub_args = (arg for arg in sub_args) # convert to a generator
 
-    while True:
-        try:
-            while not started_all and len(running) < max_concurrent:
-                running.append(sfn.launch(next(sub_args)))
-                time.sleep(delay)
-                if delay > 0:
-                    delay = int(delay * rampup_backoff)
-        except StopIteration:
-            started_all = True
-            log.debug("Finished launching sub-processes")
+    try:
+        while True:
+            try:
+                while not started_all and len(running) < max_concurrent:
+                    running.append(sfn.launch(next(sub_args)))
+                    time.sleep(delay)
+                    if delay > 0:
+                        delay = int(delay * rampup_backoff)
+            except StopIteration:
+                started_all = True
+                log.debug("Finished launching sub-processes")
 
-        time.sleep(poll_delay)
+            time.sleep(poll_delay)
 
-        still_running = []
-        for arn in running:
-            status = sfn.status(arn)
-            if status.failed:
-                error = sfn.error(arn)
-                log.debug("Sub-process failed: {}".format(error))
+            still_running = list(running)
+            error = None
+            for arn in running:
+                status = sfn.status(arn)
+                if status.failed:
+                    log.debug("Sub-process failed: {}".format(error))
+                    still_running.remove(arn)
+                    if error is None: # Don't care if there are multiple errors
+                        error = sfn.error(arn)
+                elif status.success:
+                    still_running.remove(arn)
+                    results.append(status.output)
+
+                time.sleep(status_delay)
+
+            log.debug("Sub-processes finished: {}".format(len(running) - len(still_running)))
+            log.debug("Sub-processes running: {}".format(len(still_running)))
+            running = still_running
+
+            if error is not None:
                 raise error
-            elif status.success:
-                results.append(status.output)
-            else:
-                still_running.append(arn)
-            time.sleep(status_delay)
 
-        log.debug("Sub-processes finished: {}".format(len(running) - len(still_running)))
-        log.debug("Sub-processes running: {}".format(len(still_running)))
-        running = still_running
+            if started_all and len(running) == 0:
+                log.debug("Finished")
+                break
 
-        if started_all and len(running) == 0:
-            log.debug("Finished")
-            break
-
-    return results
+        return results
+    finally:
+        # DP NOTE: Using a finally clause instead of except because of the
+        #          differences in how exceptions need to be reraised between
+        #          Python 2 and 3. This will keep the traceback untouched and
+        #          if there was no error then the running array is empty.
+        for arn in running:
+            try:
+                sfn.cancel(arn)
+            except:
+                log.exception("Could not cancel {}".format(arn))
 
 class TaskMixin(object):
     """Mixin with helper methods for processing and sending results back
@@ -439,11 +476,8 @@ class ActivityMixin(object):
         """Generate a unique worker name"""
         rand = ''.join(random.sample(CHARS, 6))
 
-        if name is None:
-            name = self.name
-
-        if name is not None:
-            rand = name + '-' + rand
+        if self.name is not None:
+            rand = self.name + '-' + rand
 
         return rand
 
@@ -466,7 +500,7 @@ class ActivityMixin(object):
             else:
                 self.arn = self.lookup_activity_arn(name)
                 self.name = name
-                self.create_activity(name)
+                self.create_activity()
 
         # Storage for currently executing workers
         self.workers = []

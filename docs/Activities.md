@@ -132,9 +132,20 @@ The fanout function will execute the given step function once per input argument
 and poll the execution ARN for the results. If successful, returns are
 aggregated into any array to be returned. If a failure occures, the failure
 information is extracted and raised as a `heaviside.exceptions.ActivityError`.
+If any exception is raised, fanout will attempt to stop any executing step
+functions before returning, so there are no orphaned executions running.
 
 The fanout function will also limit the number of concurrently executions and
 will slowly ramp up the execution of the step functions. The ramp up allows for
 other AWS resources to scale before the total number of executing processes
 are running.
 
+The fanout function also has two additional delay arguments that can be used to
+limit the rate at which AWS requests are made during status polling. These can be
+changed to keep the caller from exceeding the AWS throttling limits (200 unit
+bucket per account, refilling at 1 unit per second).
+
+**Note:** The fanout function currently maintains state in-memory, which means
+that if there is a failure, state / sub-state is lost. It also means that fanout
+works best when calling stateless / idempotent step functions or when the caller
+can clean up state before a retry is attempted
