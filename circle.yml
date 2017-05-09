@@ -1,4 +1,4 @@
 test:
     override:
-        - python2 setup.py test
-        - python3.5 setup.py test
+        - PYENV_VERSION=2.7.11 python setup.py test
+        - PYENV_VERSION=3.5.1 python setup.py test
