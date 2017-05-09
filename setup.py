@@ -13,6 +13,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# python setup.py sdist
+# python setup.py bdist_wheel
+# twine upload --skip-existing dist/*
+
 __version__ = '1.0'
 
 import os
@@ -30,7 +34,7 @@ def read(filename):
 def test_suite():
     import unittest
     loader = unittest.TestLoader()
-    suite = loader.discover('heaviside', pattern='test_*.py')
+    suite = loader.discover('.', pattern='test_*.py')
     return suite
 
 setup(
@@ -43,6 +47,7 @@ setup(
     author_email='Derek.Pryor@jhuapl.edu',
     description='Python library and DSL for working with AWS StepFunctions',
     long_description=read('README.md'),
+    tests_require=['mock'],
     install_requires=read('requirements.txt').split('\n'),
     classifiers=[
         'Development Status :: 5 - Production/Stable',
