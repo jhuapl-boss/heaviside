@@ -1,0 +1,134 @@
+"""State machine comment"""
+
+version: "1.0"
+timeout: 60
+
+# ====== #
+# States #
+# ====== #
+
+Pass()
+    """Pass
+    Comment"""
+    input: '$.foo'
+    result: '$.foo'
+    output: '$.foo'
+    data:
+        {}
+
+Lambda('arn')
+    '''Lambda
+    Comment'''
+    timeout: 2
+    heartbeat: 1
+    input: '$.foo'
+    result: '$.foo'
+    output: '$.foo'
+    retry "one" 1 1 1
+    retry ['two'] 1 1 1
+    catch 'one':
+        Pass()
+    catch ['two']: '$.foo'
+        Success()
+
+Activity('activity:FUNCTION_NAME')
+    """Activity"""
+
+Wait(seconds=1)
+    """Wait-Seconds"""
+Wait(timestamp='1111-11-11T11:11:11Z')
+    """Wait-Timestamp"""
+Wait(seconds_path='$.foo')
+    """Wait-Seconds-Path"""
+Wait(timestamp_path='$.foo')
+    """Wait-Timestamp-Path
+    Comment"""
+    input: '$.foo'
+    output: '$.foo'
+
+# ============ #
+# Flow Control #
+# ============ #
+
+while '$.foo' == 1:
+    """While"""
+    Pass()
+        """While-Body"""
+transform:
+    input: '$.foo'
+    output: '$.foo'
+
+if '$.foo' == 1 or ('$.foo' >= 10 and '$.foo' < 20):
+    """If-Elif-Else"""
+    Pass()
+elif '$.foo' <= 1:
+    Pass()
+elif '$.foo' < 1:
+    Pass()
+elif '$.foo' >= 1:
+    Pass()
+elif '$.foo' > 1:
+    Pass()
+elif '$.foo' != 1:
+    Pass()
+elif '$.foo' == '1':
+    Pass()
+elif '$.foo' <= '1':
+    Pass()
+elif '$.foo' < '1':
+    Pass()
+elif '$.foo' >= '1':
+    Pass()
+elif '$.foo' > '1':
+    Pass()
+elif '$.foo' != '1':
+    Pass()
+elif '$.foo' == true:
+    Pass()
+elif '$.foo' != true:
+    Pass()
+elif '$.foo' == '1111-11-11T11:11:11Z':
+    Pass()
+elif '$.foo' <= '1111-11-11T11:11:11Z':
+    Pass()
+elif '$.foo' < '1111-11-11T11:11:11Z':
+    Pass()
+elif '$.foo' >= '1111-11-11T11:11:11Z':
+    Pass()
+elif '$.foo' > '1111-11-11T11:11:11Z':
+    Pass()
+elif '$.foo' != '1111-11-11T11:11:11Z':
+    Pass()
+
+switch '$.a':
+    """Switch"""
+    case 1:
+        Pass()
+    case 'foo':
+        Pass()
+    case '1111-11-11T11:11:11Z':
+        Pass()
+    default:
+        Pass()
+transform:
+    output: '$.foo'
+
+parallel:
+    """Parallel"""
+    Success()
+        """Success
+        Comment"""
+        input: '$.foo'
+        output: '$.foo'
+
+parallel:
+    Fail('error', 'cause')
+        """Fail
+        Comment"""
+
+transform:
+    input: '$.foo'
+error:
+    retry [] 1 0 1.0
+    catch []:
+        Pass()

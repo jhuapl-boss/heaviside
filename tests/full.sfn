@@ -1,0 +1,412 @@
+{
+   "States": {
+      "Pass": {
+         "Comment": "Comment", 
+         "ResultPath": "$.foo", 
+         "Next": "Lambda", 
+         "OutputPath": "$.foo", 
+         "Result": {}, 
+         "InputPath": "$.foo", 
+         "Type": "Pass"
+      }, 
+      "Lambda": {
+         "Comment": "Comment", 
+         "Retry": [
+            {
+               "ErrorEquals": [
+                  "one"
+               ], 
+               "MaxAttempts": 1, 
+               "IntervalSeconds": 1, 
+               "BackoffRate": 1.0
+            }, 
+            {
+               "ErrorEquals": [
+                  "two"
+               ], 
+               "MaxAttempts": 1, 
+               "IntervalSeconds": 1, 
+               "BackoffRate": 1.0
+            }
+         ], 
+         "Resource": "arn:aws:lambda:::function:arn", 
+         "TimeoutSeconds": 2, 
+         "ResultPath": "$.foo", 
+         "HeartbeatSeconds": 1, 
+         "OutputPath": "$.foo", 
+         "Catch": [
+            {
+               "ErrorEquals": [
+                  "one"
+               ], 
+               "Next": "Line30"
+            }, 
+            {
+               "ErrorEquals": [
+                  "two"
+               ], 
+               "ResultPath": "$.foo", 
+               "Next": "Line32"
+            }
+         ], 
+         "InputPath": "$.foo", 
+         "Next": "Activity", 
+         "Type": "Task"
+      }, 
+      "Line30": {
+         "Type": "Pass", 
+         "Next": "Activity"
+      }, 
+      "Line32": {
+         "Type": "Succeed"
+      }, 
+      "Activity": {
+         "Resource": "arn:aws:states:::activity:FUNCTION_NAME", 
+         "Type": "Task", 
+         "Next": "Wait-Seconds"
+      }, 
+      "Wait-Seconds": {
+         "Seconds": 1, 
+         "Type": "Wait", 
+         "Next": "Wait-Timestamp"
+      }, 
+      "Wait-Timestamp": {
+         "Timestamp": "1111-11-11T11:11:11Z", 
+         "Type": "Wait", 
+         "Next": "Wait-Seconds-Path"
+      }, 
+      "Wait-Seconds-Path": {
+         "SecondsPath": "$.foo", 
+         "Type": "Wait", 
+         "Next": "Wait-Timestamp-Path"
+      }, 
+      "Wait-Timestamp-Path": {
+         "Comment": "Comment", 
+         "OutputPath": "$.foo", 
+         "Next": "While", 
+         "TimestampPath": "$.foo", 
+         "InputPath": "$.foo", 
+         "Type": "Wait"
+      }, 
+      "While": {
+         "InputPath": "$.foo", 
+         "OutputPath": "$.foo", 
+         "Default": "If-Elif-Else", 
+         "Type": "Choice", 
+         "Choices": [
+            {
+               "Variable": "$.foo", 
+               "Next": "While-Body", 
+               "NumericEquals": 1
+            }
+         ]
+      }, 
+      "While-Body": {
+         "Type": "Pass", 
+         "Next": "While"
+      }, 
+      "If-Elif-Else": {
+         "Default": "Switch", 
+         "Type": "Choice", 
+         "Choices": [
+            {
+               "Or": [
+                  {
+                     "Variable": "$.foo", 
+                     "NumericEquals": 1
+                  }, 
+                  {
+                     "And": [
+                        {
+                           "Variable": "$.foo", 
+                           "NumericGreaterThanEquals": 10
+                        }, 
+                        {
+                           "Variable": "$.foo", 
+                           "NumericLessThan": 20
+                        }
+                     ]
+                  }
+               ], 
+               "Next": "Line63"
+            }, 
+            {
+               "Variable": "$.foo", 
+               "NumericLessThanEquals": 1, 
+               "Next": "Line65"
+            }, 
+            {
+               "Variable": "$.foo", 
+               "NumericLessThan": 1, 
+               "Next": "Line67"
+            }, 
+            {
+               "Variable": "$.foo", 
+               "NumericGreaterThanEquals": 1, 
+               "Next": "Line69"
+            }, 
+            {
+               "Variable": "$.foo", 
+               "NumericGreaterThan": 1, 
+               "Next": "Line71"
+            }, 
+            {
+               "Not": {
+                  "Variable": "$.foo", 
+                  "NumericEquals": 1
+               }, 
+               "Next": "Line73"
+            }, 
+            {
+               "Variable": "$.foo", 
+               "StringEquals": "1", 
+               "Next": "Line75"
+            }, 
+            {
+               "Variable": "$.foo", 
+               "StringLessThanEquals": "1", 
+               "Next": "Line77"
+            }, 
+            {
+               "Variable": "$.foo", 
+               "StringLessThan": "1", 
+               "Next": "Line79"
+            }, 
+            {
+               "Variable": "$.foo", 
+               "StringGreaterThanEquals": "1", 
+               "Next": "Line81"
+            }, 
+            {
+               "Variable": "$.foo", 
+               "Next": "Line83", 
+               "StringGreaterThan": "1"
+            }, 
+            {
+               "Not": {
+                  "Variable": "$.foo", 
+                  "StringEquals": "1"
+               }, 
+               "Next": "Line85"
+            }, 
+            {
+               "Variable": "$.foo", 
+               "BooleanEquals": true, 
+               "Next": "Line87"
+            }, 
+            {
+               "Not": {
+                  "Variable": "$.foo", 
+                  "BooleanEquals": true
+               }, 
+               "Next": "Line89"
+            }, 
+            {
+               "Variable": "$.foo", 
+               "TimestampEquals": "1111-11-11T11:11:11Z", 
+               "Next": "Line91"
+            }, 
+            {
+               "Variable": "$.foo", 
+               "TimestampLessThanEquals": "1111-11-11T11:11:11Z", 
+               "Next": "Line93"
+            }, 
+            {
+               "Variable": "$.foo", 
+               "TimestampLessThan": "1111-11-11T11:11:11Z", 
+               "Next": "Line95"
+            }, 
+            {
+               "Variable": "$.foo", 
+               "TimestampGreaterThanEquals": "1111-11-11T11:11:11Z", 
+               "Next": "Line97"
+            }, 
+            {
+               "Variable": "$.foo", 
+               "TimestampGreaterThan": "1111-11-11T11:11:11Z", 
+               "Next": "Line99"
+            }, 
+            {
+               "Not": {
+                  "Variable": "$.foo", 
+                  "TimestampEquals": "1111-11-11T11:11:11Z"
+               }, 
+               "Next": "Line101"
+            }
+         ]
+      }, 
+      "Line63": {
+         "Type": "Pass", 
+         "Next": "Switch"
+      }, 
+      "Line65": {
+         "Type": "Pass", 
+         "Next": "Switch"
+      }, 
+      "Line67": {
+         "Type": "Pass", 
+         "Next": "Switch"
+      }, 
+      "Line69": {
+         "Type": "Pass", 
+         "Next": "Switch"
+      }, 
+      "Line71": {
+         "Type": "Pass", 
+         "Next": "Switch"
+      }, 
+      "Line73": {
+         "Type": "Pass", 
+         "Next": "Switch"
+      }, 
+      "Line75": {
+         "Type": "Pass", 
+         "Next": "Switch"
+      }, 
+      "Line77": {
+         "Type": "Pass", 
+         "Next": "Switch"
+      }, 
+      "Line79": {
+         "Type": "Pass", 
+         "Next": "Switch"
+      }, 
+      "Line81": {
+         "Type": "Pass", 
+         "Next": "Switch"
+      }, 
+      "Line83": {
+         "Type": "Pass", 
+         "Next": "Switch"
+      }, 
+      "Line85": {
+         "Type": "Pass", 
+         "Next": "Switch"
+      }, 
+      "Line87": {
+         "Type": "Pass", 
+         "Next": "Switch"
+      }, 
+      "Line89": {
+         "Type": "Pass", 
+         "Next": "Switch"
+      }, 
+      "Line91": {
+         "Type": "Pass", 
+         "Next": "Switch"
+      }, 
+      "Line93": {
+         "Type": "Pass", 
+         "Next": "Switch"
+      }, 
+      "Line95": {
+         "Type": "Pass", 
+         "Next": "Switch"
+      }, 
+      "Line97": {
+         "Type": "Pass", 
+         "Next": "Switch"
+      }, 
+      "Line99": {
+         "Type": "Pass", 
+         "Next": "Switch"
+      }, 
+      "Line101": {
+         "Type": "Pass", 
+         "Next": "Switch"
+      }, 
+      "Switch": {
+         "OutputPath": "$.foo", 
+         "Default": "Line112", 
+         "Type": "Choice", 
+         "Choices": [
+            {
+               "Variable": "$.a", 
+               "Next": "Line106", 
+               "NumericEquals": 1
+            }, 
+            {
+               "Variable": "$.a", 
+               "StringEquals": "foo", 
+               "Next": "Line108"
+            }, 
+            {
+               "Variable": "$.a", 
+               "TimestampEquals": "1111-11-11T11:11:11Z", 
+               "Next": "Line110"
+            }
+         ]
+      }, 
+      "Line106": {
+         "Type": "Pass", 
+         "Next": "Parallel"
+      }, 
+      "Line108": {
+         "Type": "Pass", 
+         "Next": "Parallel"
+      }, 
+      "Line110": {
+         "Type": "Pass", 
+         "Next": "Parallel"
+      }, 
+      "Line112": {
+         "Type": "Pass", 
+         "Next": "Parallel"
+      }, 
+      "Parallel": {
+         "Retry": [
+            {
+               "ErrorEquals": [
+                  "States.ALL"
+               ], 
+               "MaxAttempts": 0, 
+               "IntervalSeconds": 1, 
+               "BackoffRate": 1.0
+            }
+         ], 
+         "Branches": [
+            {
+               "States": {
+                  "Success": {
+                     "Comment": "Comment", 
+                     "InputPath": "$.foo", 
+                     "Type": "Succeed", 
+                     "OutputPath": "$.foo"
+                  }
+               }, 
+               "StartAt": "Success"
+            }, 
+            {
+               "States": {
+                  "Fail": {
+                     "Comment": "Comment", 
+                     "Cause": "cause", 
+                     "Type": "Fail", 
+                     "Error": "error"
+                  }
+               }, 
+               "StartAt": "Fail"
+            }
+         ], 
+         "Catch": [
+            {
+               "ErrorEquals": [
+                  "States.ALL"
+               ], 
+               "Next": "Line134"
+            }
+         ], 
+         "InputPath": "$.foo", 
+         "End": true, 
+         "Type": "Parallel"
+      }, 
+      "Line134": {
+         "End": true, 
+         "Type": "Pass"
+      }
+   }, 
+   "Comment": "State machine comment", 
+   "Version": "1.0", 
+   "StartAt": "Pass", 
+   "TimeoutSeconds": 60
+}
