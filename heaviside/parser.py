@@ -23,6 +23,9 @@ from .ast import *
 
 from .sfn import StepFunction, Timestamp
 
+# Helper functions
+# Used by the main parser logic
+
 def make(cls):
     """Helper that unpacks the tuple of arguments before creating a class"""
     def make_(args):
@@ -46,34 +49,42 @@ def debug_(m):
     return debug__
 
 def const(value):
+    """Create an ASTValue with a constant value"""
     def const_(token):
         return ASTValue(value, token)
     return const_
 
 def tok_to_value(token):
+    """Wrap a token in an ASTValue"""
     return ASTValue(token.value, token)
 
 def toktype(code):
+    """Get an ASTValue with the given token type"""
     return some(lambda x: x.code == code) >> tok_to_value
 
 def op(operator):
+    """Get an ASTValue with the given operator value"""
     return a(Token('OP', operator)) >> tok_to_value
 
 def op_(operator):
+    """Skip the operator with the given value"""
     return skip(op(operator))
 
 def n(name):
+    """Get an ASTValue with the given name value"""
     return a(Token('NAME', name)) >> tok_to_value
 
 def n_(name):
+    """Skip the name with the given value"""
     return skip(n(name))
 
-# Primatives
+# Define true and false in terms of Python boolean values
 true = (n('true') | n('True')) >> const(True)
 false = (n('false') | n('False')) >> const(False)
 boolean = true | false
 
 def value_to_number(ast):
+    """Convert the ASTValue.value into an int or float"""
     try:
         ast.value = int(ast.value)
     except ValueError:
@@ -83,6 +94,7 @@ def value_to_number(ast):
             ast.raise_error("'{}' is not a valid number".format(ast.value))
     return ast
 
+# Get an int or float as an ASTValue
 number = toktype('NUMBER') >> value_to_number
 
 def check(cond, msg):
@@ -92,20 +104,24 @@ def check(cond, msg):
         return ast
     return check_
 
+# Get an integer, non-negative integer, positive integer as an ASTValue
 integer = number >> check(lambda val: isinstance(val, int), "'{}' is not a valid integer")
 integer_nn = integer >> check(lambda val: val >= 0, "'{}' is not a non-negative integer")
 integer_pos = integer >> check(lambda val: val > 0, "'{}' is not a positive integer")
 
 def value_to_string(ast):
+    """Remove the quotes from around the string value"""
     if ast.value[:3] in ('"""', "'''"):
         ast.value = ast.value[3:-3]
     else:
         ast.value = ast.value[1:-1]
     return ast
 
+# Get a string as an ASTValue
 string = toktype('STRING') >> value_to_string
 
 def string_to_timestamp(ast):
+    """Try to parse a string as a Timestamp"""
     try:
         ast.value = Timestamp(ast.value)
     except:
@@ -113,9 +129,13 @@ def string_to_timestamp(ast):
         #ast.raise_error("'{}' is not a valid timestamp".format(ast.value))
     return ast
 
+# Get a string or timestamp as an ASTValue
 timestamp_or_string = string >> string_to_timestamp
 
+# Skip the end sequence token
 end = skip(a(Token('ENDMARKER', '')))
+
+# Skip the indent / dedent tokens
 block_s = skip(toktype('INDENT'))
 block_e = skip(toktype('DEDENT'))
 
