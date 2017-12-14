@@ -25,7 +25,8 @@ except ImportError:
 
 from .utils import MockPath, MockSession
 
-from heaviside.activities import TaskMixin, ActivityMixin, fanout, SFN
+from heaviside.activities import TaskMixin, ActivityMixin
+from heaviside.activities import fanout, fanout_nonblocking, SFN
 from heaviside.exceptions import ActivityError
 
 # Suppress message about not handler for log messages
@@ -222,6 +223,73 @@ class TestFanout(unittest.TestCase):
         ]
 
         self.assertEqual(client.mock_calls, calls)
+
+class TestFanoutNonBlocking(unittest.TestCase):
+    @mock.patch.object(SFN, 'create_name')
+    @mock.patch('heaviside.activities.time.sleep')
+    def test_gt_concurrent(self, mSleep, mCreateName):
+        mCreateName.return_value = 'ZZZ'
+        iSession = MockSession()
+        client = iSession.client('stepfunctions')
+        client.list_state_machines.return_value = {
+            'stateMachines':[{
+                'stateMachineArn': 'XXX'
+            }]
+        }
+        client.start_execution.return_value = {
+            'executionArn': 'YYY'
+        }
+        client.describe_execution.return_value = {
+            'status': 'SUCCEEDED',
+            'output': 'null'
+        }
+
+        args = {
+            'sub_sfn': 'XXX',
+            'sub_args': [i for i in range(0,2)],
+            'max_concurrent': 1,
+            'rampup_delay': 10,
+            'rampup_backoff': 0.5,
+            'status_delay': 0,
+            'finished': False,
+            'running': [],
+            'results': [],
+        }
+
+        args1 = fanout_nonblocking(args, iSession)
+        self.assertFalse(args1['finished'])
+        self.assertEqual(args1['running'], ['YYY'])
+        self.assertEqual(args1['results'], [])
+        self.assertEqual(args1['rampup_delay'], 5)
+
+        args2 = fanout_nonblocking(args, iSession)
+        self.assertFalse(args2['finished'])
+        self.assertEqual(args2['running'], ['YYY'])
+        self.assertEqual(args2['results'], [None])
+        self.assertEqual(args2['rampup_delay'], 2)
+
+        args3 = fanout_nonblocking(args, iSession)
+        self.assertTrue(args3['finished'])
+        self.assertEqual(args3['running'], [])
+        self.assertEqual(args3['results'], [None, None])
+        self.assertEqual(args3['rampup_delay'], 2) # no processes launched
+
+        calls = [
+            mock.call.list_state_machines(),
+            mock.call.start_execution(stateMachineArn = 'XXX',
+                                      name = 'ZZZ',
+                                      input = '0'),
+            mock.call.list_state_machines(),
+            mock.call.describe_execution(executionArn = 'YYY'),
+            mock.call.start_execution(stateMachineArn = 'XXX',
+                                      name = 'ZZZ',
+                                      input = '1'),
+            mock.call.list_state_machines(),
+            mock.call.describe_execution(executionArn = 'YYY'),
+        ]
+
+        self.assertEqual(client.mock_calls, calls)
+
 
 class TestTaskMixin(unittest.TestCase):
     @mock.patch('heaviside.activities.create_session', autospec=True)
