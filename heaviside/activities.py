@@ -21,6 +21,7 @@ from datetime import datetime
 from string import ascii_uppercase as CHARS
 from multiprocessing import Process
 
+from boto3.session import Session
 from botocore.exceptions import ClientError
 from botocore.client import Config
 
@@ -52,6 +53,9 @@ class SFN(object):
         def output(self):
             """The parsed JSON output of the StepFunction"""
             return json.loads(self.resp['output']) if 'output' in self.resp else None
+
+        def __str__(self):
+            return "{}: {}".format(self.resp['status'], self.output)
 
     def __init__(self, session, name):
         """
@@ -245,6 +249,108 @@ def fanout(session, sub_sfn, sub_args, max_concurrent=50, rampup_delay=15, rampu
                 sfn.cancel(arn)
             except:
                 log.exception("Could not cancel {}".format(arn))
+
+def fanout(session, sub_sfn, sub_args, max_concurrent=50, rampup_delay=15, rampup_backoff=0.8, poll_delay=5, status_delay=1):
+    args = {
+        'sub_sfn': sub_sfn,
+        'sub_args': list(sub_args), # Handle generator type that could previous be passed
+        'max_concurrent': max_concurrent,
+        'rampup_delay': rampup_delay,
+        'rampup_backoff': rampup_backoff,
+        'status_delay': status_delay,
+        'finished': False,
+        'running': [],
+        'results': []
+    }
+
+    while True:
+        args = fanout_async(args, session)
+
+        if args['finished']:
+            return args['results']
+
+        time.sleep(poll_delay)
+
+def fanout_async(args, session=None):
+    """
+    args:
+        {
+            sub_sfn (ARN)
+            sub_args (list)
+            max_concurrent (int)
+            rampup_delay (int)
+            rampup_backoff (float)
+            status_delay (int)
+
+            running (list)
+            results (list)
+            finished (boolean)
+        }
+    """
+    log = logging.getLogger(__name__)
+
+    sub_sfn = args['sub_sfn']
+    sub_args = args['sub_args']
+    max_concurrent = args['max_concurrent']
+    rampup_delay = args['rampup_delay']
+    rampup_backoff = args['rampup_backoff']
+    status_delay = args['status_delay']
+
+    if session is None:
+        session = Session()
+    sfn = SFN(session, sub_sfn)
+
+    running = args['running']
+    results = args['results']
+    handling_exception = True
+
+    try:
+        # Check the status of all running sub_sfn executions
+        still_running = list(running)
+        error = None
+        for arn in running:
+            status = sfn.status(arn)
+            if status.failed:
+                log.debug("Sub-process failed: {}".format(error))
+                still_running.remove(arn)
+                if error is None: # Don't care if there are multiple errors
+                    error = sfn.error(arn)
+            elif status.success:
+                still_running.remove(arn)
+                results.append(status.output)
+
+            time.sleep(status_delay) # Slow the request rate
+
+        log.debug("Sub-processes finished: {}".format(len(running) - len(still_running)))
+        log.debug("Sub-processes running: {}".format(len(still_running)))
+        running = args['running'] = still_running
+
+        if error is not None:
+            raise error
+
+        # Launch any remaining sub_sfn, as max_concurrent allows
+        while len(sub_args) > 0 and len(running) < max_concurrent:
+            running.append(sfn.launch(sub_args.pop(0)))
+            if rampup_delay > 0:
+                time.sleep(rampup_delay)
+                rampup_delay = args['rampup_delay'] = int(rampup_delay * rampup_backoff)
+
+        if len(sub_args) == 0 and len(running) == 0:
+            args['finished'] = True
+
+        handling_exception = False
+        return args
+
+    finally:
+        if handling_exception:
+            # DP NOTE: Using a finally clause instead of except because of the
+            #          differences in how exceptions need to be reraised between
+            #          Python 2 and 3. This will keep the traceback untouched
+            for arn in running:
+                try:
+                    sfn.cancel(arn)
+                except:
+                    log.exception("Could not cancel {}".format(arn))
 
 class TaskMixin(object):
     """Mixin with helper methods for processing and sending results back

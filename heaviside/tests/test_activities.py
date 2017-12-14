@@ -80,6 +80,7 @@ class TestFanout(unittest.TestCase):
             mock.call.start_execution(stateMachineArn = 'XXX',
                                       name = 'ZZZ',
                                       input = '0'),
+            mock.call.list_state_machines(),
             mock.call.describe_execution(executionArn = 'YYY')
         ]
 
@@ -116,6 +117,7 @@ class TestFanout(unittest.TestCase):
             mock.call.start_execution(stateMachineArn = 'XXX',
                                       name = 'ZZZ',
                                       input = '0'),
+            mock.call.list_state_machines(),
             mock.call.describe_execution(executionArn = 'YYY')
         ]
 
@@ -153,10 +155,12 @@ class TestFanout(unittest.TestCase):
             mock.call.start_execution(stateMachineArn = 'XXX',
                                       name = 'ZZZ',
                                       input = '0'),
+            mock.call.list_state_machines(),
             mock.call.describe_execution(executionArn = 'YYY'),
             mock.call.start_execution(stateMachineArn = 'XXX',
                                       name = 'ZZZ',
                                       input = '1'),
+            mock.call.list_state_machines(),
             mock.call.describe_execution(executionArn = 'YYY'),
         ]
 
@@ -207,6 +211,7 @@ class TestFanout(unittest.TestCase):
             mock.call.start_execution(stateMachineArn = 'XXX',
                                       name = 'ZZZ',
                                       input = '1'),
+            mock.call.list_state_machines(),
             mock.call.describe_execution(executionArn = 'YYY'),
             mock.call.get_execution_history(executionArn = 'YYY',
                                             reverseOrder = True),
