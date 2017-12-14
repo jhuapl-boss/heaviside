@@ -264,14 +264,14 @@ def fanout(session, sub_sfn, sub_args, max_concurrent=50, rampup_delay=15, rampu
     }
 
     while True:
-        args = fanout_async(args, session)
+        args = fanout_nonblocking(args, session)
 
         if args['finished']:
             return args['results']
 
         time.sleep(poll_delay)
 
-def fanout_async(args, session=None):
+def fanout_nonblocking(args, session=None):
     """
     args:
         {
