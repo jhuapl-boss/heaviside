@@ -167,15 +167,18 @@ def fanout(session, sub_sfn, sub_args, max_concurrent=50, rampup_delay=15, rampu
                                that can be launched. Once this limit is hit
                                fanout waits until some current executions have
                                finished before launching more sub_sfn.
-        rampup_delay (int) : Initial delay between launches of sub_sfn. Allows
+        rampup_delay (int) : Seconds
+                             Initial delay between launches of sub_sfn. Allows
                              for AWS resources to detect and scale to the large
                              volume of requests that can be generated.
         rampup_backoff (float) : Multiplier for rampup_delay that reduces the
                                  delay until there is no delay left between
                                  launches of sub_sfn.
-        poll_delay (int) : Delay between launching (multiple) sub_sfn and polling
+        poll_delay (int) : Seconds
+                           Delay between launching (multiple) sub_sfn and polling
                            for their status.
-        status_delay (int) : Delay between polling the status of each concurrently
+        status_delay (int) : Seconds
+                             Delay between polling the status of each concurrently
                              executing sub_sfn. Used to limit AWS API request
                              speed of fanout and not run into throttling problems.
 
@@ -217,6 +220,7 @@ def fanout_nonblocking(args, session=None):
 
     Args:
         args: {
+            # See fanout for full details of arguments
             sub_sfn (ARN)
             sub_args (list)
             max_concurrent (int)
