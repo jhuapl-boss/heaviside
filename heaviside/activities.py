@@ -21,6 +21,7 @@ from datetime import datetime
 from string import ascii_uppercase as CHARS
 from multiprocessing import Process
 
+from boto3.session import Session
 from botocore.exceptions import ClientError
 from botocore.client import Config
 
@@ -52,6 +53,9 @@ class SFN(object):
         def output(self):
             """The parsed JSON output of the StepFunction"""
             return json.loads(self.resp['output']) if 'output' in self.resp else None
+
+        def __str__(self):
+            return "{}: {}".format(self.resp['status'], self.output)
 
     def __init__(self, session, name):
         """
@@ -134,7 +138,6 @@ class SFN(object):
                                           error = "Heaviside.Fanout",
                                           cause = "Sub-process error detected")
 
-
 def fanout(session, sub_sfn, sub_args, max_concurrent=50, rampup_delay=15, rampup_backoff=0.8, poll_delay=5, status_delay=1):
     """Activity helper method for executing a dynamic number of StepFunctions
     and returning the results.
@@ -157,22 +160,25 @@ def fanout(session, sub_sfn, sub_args, max_concurrent=50, rampup_delay=15, rampu
         session (boto3.session) : Active session for communicating with AWS
         sub_sfn (String) : Name or full ARN of StepFunction to execute
                            Used to locate the full ARN in AWS
-        sub_args (list|generator) : Arguments for each sub_sfn execution
-                                    Each element is passed to a different
-                                    execution of the sub_sfn
+        sub_args (list) : Arguments for each sub_sfn execution
+                          Each element is passed to a different
+                          execution of the sub_sfn
         max_concurrent (int) : Total number of concurrently executing sub_sfn
                                that can be launched. Once this limit is hit
                                fanout waits until some current executions have
                                finished before launching more sub_sfn.
-        rampup_delay (int) : Initial delay between launches of sub_sfn. Allows
+        rampup_delay (int) : Seconds
+                             Initial delay between launches of sub_sfn. Allows
                              for AWS resources to detect and scale to the large
                              volume of requests that can be generated.
         rampup_backoff (float) : Multiplier for rampup_delay that reduces the
                                  delay until there is no delay left between
                                  launches of sub_sfn.
-        poll_delay (int) : Delay between launching (multiple) sub_sfn and polling
+        poll_delay (int) : Seconds
+                           Delay between launching (multiple) sub_sfn and polling
                            for their status.
-        status_delay (int) : Delay between polling the status of each concurrently
+        status_delay (int) : Seconds
+                             Delay between polling the status of each concurrently
                              executing sub_sfn. Used to limit AWS API request
                              speed of fanout and not run into throttling problems.
 
@@ -183,68 +189,123 @@ def fanout(session, sub_sfn, sub_args, max_concurrent=50, rampup_delay=15, rampu
         ActivityError : If there was a failure in a sub_sfn execution, contains
                         the failure error and cause if it can be determined.
     """
+    args = {
+        'sub_sfn': sub_sfn,
+        'sub_args': list(sub_args), # Handle generator type that could previous be passed
+        'max_concurrent': max_concurrent,
+        'rampup_delay': rampup_delay,
+        'rampup_backoff': rampup_backoff,
+        'status_delay': status_delay,
+        'finished': False,
+        'running': [],
+        'results': []
+    }
+
+    while True:
+        args = fanout_nonblocking(args, session)
+
+        if args['finished']:
+            return args['results']
+
+        time.sleep(poll_delay)
+
+def fanout_nonblocking(args, session=None):
+    """Helper method for executing a dynamic number of StepFunctions and
+    returning the results.
+
+    This is a non-blocking version of fanout, designed to be executed by
+    a Lambda in a StepFunction loop, where the loop handles the poll_delay
+    sleep. The function is designed so the output is the input for the next
+    iteration of the polling loop.
+
+    Args:
+        args: {
+            # See fanout for full details of arguments
+            sub_sfn (ARN)
+            sub_args (list)
+            max_concurrent (int)
+            rampup_delay (int)
+            rampup_backoff (float)
+            status_delay (int)
+
+            running (list) : List of running ARNs that are being polled
+            results (list) : List of JSON parsed results for each executed sub_sfn
+            finished (boolean) : Status flag that will be set to True when
+                                 all sub_sfn have been launched and have finished
+        }
+        session (boto3.session|None): Active session for communicating with AWS
+                                      or None to construct one from the environment
+
+    Returns:
+        dict : An updated copy of the args dict
+
+    Exceptions:
+        ActivityError
+    """
     log = logging.getLogger(__name__)
+
+    sub_sfn = args['sub_sfn']
+    sub_args = args['sub_args']
+    max_concurrent = args['max_concurrent']
+    rampup_delay = args['rampup_delay']
+    rampup_backoff = args['rampup_backoff']
+    status_delay = args['status_delay']
+
+    if session is None:
+        session = Session()
     sfn = SFN(session, sub_sfn)
 
-    running = []
-    results = []
-    delay = rampup_delay
-    started_all = False
-
-    if not isinstance(sub_args, types.GeneratorType):
-        sub_args = (arg for arg in sub_args) # convert to a generator
+    running = args['running']
+    results = args['results']
+    handling_exception = True # Detect if we need to stop all running executions
 
     try:
-        while True:
-            try:
-                while not started_all and len(running) < max_concurrent:
-                    running.append(sfn.launch(next(sub_args)))
-                    time.sleep(delay)
-                    if delay > 0:
-                        delay = int(delay * rampup_backoff)
-            except StopIteration:
-                started_all = True
-                log.debug("Finished launching sub-processes")
-
-            time.sleep(poll_delay)
-
-            still_running = list(running)
-            error = None
-            for arn in running:
-                status = sfn.status(arn)
-                if status.failed:
-                    log.debug("Sub-process failed: {}".format(error))
-                    still_running.remove(arn)
-                    if error is None: # Don't care if there are multiple errors
-                        error = sfn.error(arn)
-                elif status.success:
-                    still_running.remove(arn)
-                    results.append(status.output)
-
-                time.sleep(status_delay)
-
-            log.debug("Sub-processes finished: {}".format(len(running) - len(still_running)))
-            log.debug("Sub-processes running: {}".format(len(still_running)))
-            running = still_running
-
-            if error is not None:
-                raise error
-
-            if started_all and len(running) == 0:
-                log.debug("Finished")
-                break
-
-        return results
-    finally:
-        # DP NOTE: Using a finally clause instead of except because of the
-        #          differences in how exceptions need to be reraised between
-        #          Python 2 and 3. This will keep the traceback untouched and
-        #          if there was no error then the running array is empty.
+        # Check the status of all running sub_sfn executions
+        still_running = list(running)
+        error = None
         for arn in running:
-            try:
-                sfn.cancel(arn)
-            except:
-                log.exception("Could not cancel {}".format(arn))
+            status = sfn.status(arn)
+            if status.failed:
+                log.debug("Sub-process failed: {}".format(error))
+                still_running.remove(arn)
+                if error is None: # Don't care if there are multiple errors
+                    error = sfn.error(arn)
+            elif status.success:
+                still_running.remove(arn)
+                results.append(status.output)
+
+            time.sleep(status_delay) # Slow the request rate
+
+        log.debug("Sub-processes finished: {}".format(len(running) - len(still_running)))
+        log.debug("Sub-processes running: {}".format(len(still_running)))
+        running = args['running'] = still_running
+
+        if error is not None:
+            raise error
+
+        # Launch any remaining sub_sfn, as max_concurrent allows
+        while len(sub_args) > 0 and len(running) < max_concurrent:
+            running.append(sfn.launch(sub_args.pop(0)))
+            if rampup_delay > 0:
+                time.sleep(rampup_delay)
+                rampup_delay = args['rampup_delay'] = int(rampup_delay * rampup_backoff)
+
+        if len(sub_args) == 0 and len(running) == 0:
+            args['finished'] = True
+
+        handling_exception = False
+        return args
+
+    finally:
+        if handling_exception:
+            # DP NOTE: Using a finally clause instead of except because of the
+            #          differences in how exceptions need to be reraised between
+            #          Python 2 and 3. This will keep the traceback untouched
+            for arn in running:
+                try:
+                    sfn.cancel(arn)
+                except:
+                    log.exception("Could not cancel {}".format(arn))
 
 class TaskMixin(object):
     """Mixin with helper methods for processing and sending results back
