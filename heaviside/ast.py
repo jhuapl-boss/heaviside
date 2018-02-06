@@ -411,7 +411,10 @@ def link(states, final=None):
                 key = list(state.branches.keys())[0]
                 state_ = state.branches[key][-1]
                 if not isinstance(state_, TERMINAL_STATES):
+                    state_ = ASTStatePass(state, None)
+                    state_.name = state.name + "Loop"
                     state_.next = state.name
+                    state.branches[key].append(state_)
 
         else:
             state.end = next_ is None

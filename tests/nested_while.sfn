@@ -1,0 +1,72 @@
+{
+   "States": {
+      "Line1": {
+         "Default": "Line1Default", 
+         "Type": "Choice", 
+         "Choices": [
+            {
+               "Variable": "$.foo", 
+               "BooleanEquals": true, 
+               "Next": "Line2"
+            }
+         ]
+      }, 
+      "Line1Default": {
+         "Type": "Succeed"
+      }, 
+      "Line2": {
+         "Default": "Line1Loop", 
+         "Type": "Choice", 
+         "Choices": [
+            {
+               "Variable": "$.foo", 
+               "BooleanEquals": true, 
+               "Next": "Line3"
+            }
+         ]
+      }, 
+      "Line3": {
+         "Default": "Line2Loop", 
+         "Type": "Choice", 
+         "Choices": [
+            {
+               "Variable": "$.foo", 
+               "BooleanEquals": true, 
+               "Next": "Line4"
+            }
+         ]
+      }, 
+      "Line4": {
+         "Default": "Line3Loop", 
+         "Type": "Choice", 
+         "Choices": [
+            {
+               "Variable": "$.foo", 
+               "BooleanEquals": true, 
+               "Next": "Line5"
+            }
+         ]
+      }, 
+      "Line5": {
+         "Type": "Pass", 
+         "Next": "Line4Loop"
+      }, 
+      "Line4Loop": {
+         "Type": "Pass", 
+         "Next": "Line4"
+      }, 
+      "Line3Loop": {
+         "Type": "Pass", 
+         "Next": "Line3"
+      }, 
+      "Line2Loop": {
+         "Type": "Pass", 
+         "Next": "Line2"
+      }, 
+      "Line1Loop": {
+         "Type": "Pass", 
+         "Next": "Line1"
+      }
+   }, 
+   "StartAt": "Line1"
+}

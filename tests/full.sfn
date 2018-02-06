@@ -103,6 +103,10 @@
       }, 
       "While-Body": {
          "Type": "Pass", 
+         "Next": "WhileLoop"
+      }, 
+      "WhileLoop": {
+         "Type": "Pass", 
          "Next": "While"
       }, 
       "If-Elif-Else": {
