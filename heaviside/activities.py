@@ -304,7 +304,10 @@ def fanout_nonblocking(args, session=None):
         while len(sub_args) > 0 and len(running) < max_concurrent:
             # Merge common arguments with specific sub_args.
             sfn_inputs = sub_args.pop(0)
-            sfn_inputs.update(common_sub_args)
+            if isinstance(sfn_inputs, dict):
+                sfn_inputs.update(common_sub_args)
+            elif len(common_sub_args) > 0:
+                log.warning("common_sub_args ignored because sub_args is not a dict")
             running.append(sfn.launch(sfn_inputs))
             if rampup_delay > 0:
                 time.sleep(rampup_delay)
