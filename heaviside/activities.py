@@ -20,6 +20,7 @@ import logging
 from datetime import datetime
 from string import ascii_uppercase as CHARS
 from multiprocessing import Process
+from copy import deepcopy
 
 from boto3.session import Session
 from botocore.exceptions import ClientError
@@ -303,8 +304,8 @@ def fanout_nonblocking(args, session=None):
         # Launch any remaining sub_sfn, as max_concurrent allows
         while len(sub_args) > 0 and len(running) < max_concurrent:
             # Merge common arguments with specific sub_args.
-            sfn_inputs = sub_args[0]
-            if isinstance(sfn_inputs, dict):
+            if isinstance(sub_args[0], dict):
+                sfn_inputs = deepcopy(sub_args[0])
                 sfn_inputs.update(common_sub_args)
             elif len(common_sub_args) > 0:
                 log.warning("common_sub_args ignored because sub_args is not a dict")
