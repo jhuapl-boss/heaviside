@@ -303,8 +303,10 @@ def fanout_nonblocking(args, session=None):
 
         # Launch any remaining sub_sfn, as max_concurrent allows
         while len(sub_args) > 0 and len(running) < max_concurrent:
+            sfn_inputs = sub_args[0]
             # Merge common arguments with specific sub_args.
             if isinstance(sub_args[0], dict):
+                # Use copy instead since we're about to mutate.
                 sfn_inputs = deepcopy(sub_args[0])
                 sfn_inputs.update(common_sub_args)
             elif len(common_sub_args) > 0:
