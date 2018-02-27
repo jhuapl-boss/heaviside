@@ -303,12 +303,30 @@ def fanout_nonblocking(args, session=None):
         # Launch any remaining sub_sfn, as max_concurrent allows
         while len(sub_args) > 0 and len(running) < max_concurrent:
             # Merge common arguments with specific sub_args.
-            sfn_inputs = sub_args.pop(0)
+            sfn_inputs = sub_args[0]
             if isinstance(sfn_inputs, dict):
                 sfn_inputs.update(common_sub_args)
             elif len(common_sub_args) > 0:
                 log.warning("common_sub_args ignored because sub_args is not a dict")
-            running.append(sfn.launch(sfn_inputs))
+            try:
+                running.append(sfn.launch(sfn_inputs))
+                sub_args.pop(0)
+            except sfn.client.exceptions.ExecutionAlreadyExists:
+                # Don't kill running step functions if accidentally reuse name
+                handling_exception = False
+                # No need to report this exception to the step function's task
+                return args
+
+            except ClientError as ex:
+                # Don't kill running step functions when throttled
+                if ex.response["Error"]["Code"] == "ThrottlingException":
+                    handling_exception = False
+                elif ex.response["Error"]["Code"] == "TooManyRequestsException":
+                    handling_exception = False
+
+                # Let exception bubble up
+                raise
+
             if rampup_delay > 0:
                 time.sleep(rampup_delay)
                 rampup_delay = args['rampup_delay'] = int(rampup_delay * rampup_backoff)
@@ -318,22 +336,6 @@ def fanout_nonblocking(args, session=None):
 
         handling_exception = False
         return args
-
-    except sfn.client.exceptions.ExecutionAlreadyExists:
-        # Don't kill running step functions if accidentally reuse name
-        handling_exception = False
-        # No need to report this exception to the step function's task
-        return args
-
-    except ClientError as ex:
-        # Don't kill running step functions when throttled
-        if ex.response["Error"]["Code"] == "ThrottlingException":
-            handling_exception = False
-        elif ex.response["Error"]["Code"] == "TooManyRequestsException":
-            handling_exception = False
-
-        # Let exception bubble up
-        raise
 
     finally:
         if handling_exception:
