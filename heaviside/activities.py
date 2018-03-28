@@ -20,6 +20,7 @@ import logging
 from datetime import datetime
 from string import ascii_uppercase as CHARS
 from multiprocessing import Process
+from copy import deepcopy
 
 from boto3.session import Session
 from botocore.exceptions import ClientError
@@ -57,22 +58,27 @@ class SFN(object):
         def __str__(self):
             return "{}: {}".format(self.resp['status'], self.output)
 
-    def __init__(self, session, name):
+    def __init__(self, session, name, have_full_arn=False):
         """
         Args:
             session (boto3.session) : Active session used to communicate
             name (string) : Name of the Step Function to execute
                             Used to lookup the full ARN
+            have_full_arn (bool) : True if name is the full ARN, so lookup not
+                                   required
         """
         self.client = session.client('stepfunctions')
         self.arn = None
 
-        resp = self.client.list_state_machines()
-        for machine in resp['stateMachines']:
-            arn = machine['stateMachineArn']
-            if arn.endswith(name):
-                self.arn = arn
-                break
+        if have_full_arn:
+            self.arn = name
+        else:
+            resp = self.client.list_state_machines()
+            for machine in resp['stateMachines']:
+                arn = machine['stateMachineArn']
+                if arn.endswith(name):
+                    self.arn = arn
+                    break
 
         if self.arn is None:
             raise HeavisideError("Could not find stepfunction {}".format(name))
@@ -80,7 +86,7 @@ class SFN(object):
     @staticmethod
     def create_name():
         """Helper method to generate a unique execution name"""
-        return datetime.now().strftime("%Y%m%d%H%M%s%f")
+        return '{}-{}'.format(datetime.now().strftime("%Y%m%d%H%M%s%f"), random.randint(0,9999))
 
     def launch(self, args):
         """Execute the named StepFunction with the given arguments
@@ -138,7 +144,7 @@ class SFN(object):
                                           error = "Heaviside.Fanout",
                                           cause = "Sub-process error detected")
 
-def fanout(session, sub_sfn, sub_args, max_concurrent=50, rampup_delay=15, rampup_backoff=0.8, poll_delay=5, status_delay=1):
+def fanout(session, sub_sfn, sub_args, max_concurrent=50, rampup_delay=15, rampup_backoff=0.8, poll_delay=5, status_delay=1, common_sub_args={}):
     """Activity helper method for executing a dynamic number of StepFunctions
     and returning the results.
 
@@ -181,6 +187,8 @@ def fanout(session, sub_sfn, sub_args, max_concurrent=50, rampup_delay=15, rampu
                              Delay between polling the status of each concurrently
                              executing sub_sfn. Used to limit AWS API request
                              speed of fanout and not run into throttling problems.
+        common_sub_args (dict) : Common arguments that should be passed to each
+                                 step function
 
     Returns:
         list : A list of the JSON parsed results for each executed sub_sfn.
@@ -191,6 +199,7 @@ def fanout(session, sub_sfn, sub_args, max_concurrent=50, rampup_delay=15, rampu
     """
     args = {
         'sub_sfn': sub_sfn,
+        'common_sub_args': common_sub_args,
         'sub_args': list(sub_args), # Handle generator type that could previous be passed
         'max_concurrent': max_concurrent,
         'rampup_delay': rampup_delay,
@@ -222,6 +231,9 @@ def fanout_nonblocking(args, session=None):
         args: {
             # See fanout for full details of arguments
             sub_sfn (ARN)
+            sub_sfn_is_full_arn (bool) : optional.  True if full arn supplied for sub_sfn
+            common_sub_args (dict) : Common arguments that should be passed to each
+                                     step function
             sub_args (list)
             max_concurrent (int)
             rampup_delay (int)
@@ -246,14 +258,20 @@ def fanout_nonblocking(args, session=None):
 
     sub_sfn = args['sub_sfn']
     sub_args = args['sub_args']
+    common_sub_args = args['common_sub_args']
     max_concurrent = args['max_concurrent']
     rampup_delay = args['rampup_delay']
     rampup_backoff = args['rampup_backoff']
     status_delay = args['status_delay']
 
+    have_full_arn = False
+    if 'sub_sfn_is_full_arn' in args:
+        if args['sub_sfn_is_full_arn']:
+            have_full_arn = True
+
     if session is None:
         session = Session()
-    sfn = SFN(session, sub_sfn)
+    sfn = SFN(session, sub_sfn, have_full_arn)
 
     running = args['running']
     results = args['results']
@@ -285,7 +303,33 @@ def fanout_nonblocking(args, session=None):
 
         # Launch any remaining sub_sfn, as max_concurrent allows
         while len(sub_args) > 0 and len(running) < max_concurrent:
-            running.append(sfn.launch(sub_args.pop(0)))
+            sfn_inputs = sub_args[0]
+            # Merge common arguments with specific sub_args.
+            if isinstance(sub_args[0], dict):
+                # Use copy instead since we're about to mutate.
+                sfn_inputs = deepcopy(sub_args[0])
+                sfn_inputs.update(common_sub_args)
+            elif len(common_sub_args) > 0:
+                log.warning("common_sub_args ignored because sub_args is not a dict")
+            try:
+                running.append(sfn.launch(sfn_inputs))
+                sub_args.pop(0)
+            except sfn.client.exceptions.ExecutionAlreadyExists:
+                # Don't kill running step functions if accidentally reuse name
+                handling_exception = False
+                # No need to report this exception to the step function's task
+                return args
+
+            except ClientError as ex:
+                # Don't kill running step functions when throttled
+                if ex.response["Error"]["Code"] == "ThrottlingException":
+                    handling_exception = False
+                elif ex.response["Error"]["Code"] == "TooManyRequestsException":
+                    handling_exception = False
+
+                # Let exception bubble up
+                raise
+
             if rampup_delay > 0:
                 time.sleep(rampup_delay)
                 rampup_delay = args['rampup_delay'] = int(rampup_delay * rampup_backoff)

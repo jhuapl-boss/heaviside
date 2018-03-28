@@ -246,6 +246,7 @@ class TestFanoutNonBlocking(unittest.TestCase):
 
         args = {
             'sub_sfn': 'XXX',
+            'common_sub_args': {},
             'sub_args': [i for i in range(0,2)],
             'max_concurrent': 1,
             'rampup_delay': 10,
