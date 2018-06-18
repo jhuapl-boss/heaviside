@@ -145,7 +145,7 @@ if __name__ == '__main__':
 
             machine = heaviside.compile(Path(args.file),
                                         translate = translate,
-                                        indent=3)
+                                        indent=3, ensure_ascii=False)
 
             args.output.write(machine)
         elif args.command == "create":
