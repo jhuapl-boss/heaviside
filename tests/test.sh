@@ -19,5 +19,7 @@ for input in `ls *.hsd`; do
             statelint $output
         fi
     fi
-    rm $tmp
+    if [ -f $tmp ] ; then
+        rm $tmp
+    fi
 done

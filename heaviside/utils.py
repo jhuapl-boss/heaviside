@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import json
+import sys
 from io import IOBase, StringIO
 from collections import Mapping
 from contextlib import contextmanager
@@ -28,6 +29,7 @@ try:
     from pathlib import Path
 except ImportError:
     import os
+    import io
 
     class Path(object):
         """Stub Path object that implements only the features used by heaviside"""
@@ -35,10 +37,29 @@ except ImportError:
             self.path = path
 
         def open(self, *args, **kwargs):
-            return open(self.path, *args, **kwargs)
+            return io.open(self.path, *args, **kwargs)
 
         def __div__(self, path):
             return Path(os.path.join(self.path, path))
+
+def isstr(obj):
+    """Determine if the given object is a string
+
+    This function support comparing against the Python2 <unicode> type as well
+    as the Python2/3 <str> type.
+
+    Args:
+        obj (object) : Object to check
+
+    Returns:
+        bool : If the object is a str or unicode type
+    """
+    try: # Python 2 compatibility
+        is_unicode = isinstance(obj, unicode)
+    except NameError:
+        is_unicode = False
+
+    return isinstance(obj, str) or is_unicode
 
 @contextmanager
 def read(obj):
@@ -54,23 +75,54 @@ def read(obj):
     Returns:
         file object: File handle containing data
     """
-    try: # Python 2 compatibility
-        is_unicode = isinstance(obj, unicode)
-    except NameError:
-        is_unicode = False
-
     is_open = False
     if isinstance(obj, Path):
         fh = obj.open()
         is_open = True
-    elif isinstance(obj, str) or is_unicode:
+    elif isstr(obj):
         fh = StringIO(obj)
         fh.name = '<string>'
     elif isinstance(obj, IOBase):
         fh = obj
     else:
-        raise Exception("Unknown input type {}".format(type(obj).__name__))
+        raise ValueError("Unknown input type {}".format(type(obj).__name__))
     
+    try:
+        yield fh
+    finally:
+        if is_open:
+            fh.close()
+
+@contextmanager
+def write(obj):
+    """Context manager for writing data to multiple sources as a file object
+
+    Args:
+        obj (string|Path|file object): Data to read / read from
+                                  If obj is a file object, this is just a pass through
+                                  If obj is a Path object, this is similar to obj.open()
+                                  If obj is a string, and is '-' then sys.stdout is used
+                                     else this is similar to Path(obj).open()
+
+    Returns:
+        file object: File handle ready to write data
+    """
+    fh = None
+    is_open = False
+    if isstr(obj) and obj == '-':
+        fh = sys.stdout
+    else:
+        obj = Path(obj)
+
+    if fh is None:
+        if isinstance(obj, Path):
+            fh = obj.open('w')
+            is_open = True
+        elif isinstance(obj, IOBase):
+            fh = obj
+        else:
+            raise ValueError("Unknown input type {}".format(type(obj).__name__))
+
     try:
         yield fh
     finally:

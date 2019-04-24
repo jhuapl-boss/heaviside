@@ -73,8 +73,7 @@ if __name__ == '__main__':
     compile_parser = subparsers.add_parser('compile', help='Compile a Heaviside file into a StepFunction State Machine')
     compile_parser.add_argument("--output", "-o",
                                 metavar = "<file>",
-                                default = sys.stdout,
-                                type = argparse.FileType('w'),
+                                default = "-",
                                 help = "Location to save the StepFunction State Machine to (default: stdout)")
     compile_parser.add_argument("file",
                                 help="heaviside file to compile")
@@ -147,7 +146,8 @@ if __name__ == '__main__':
                                         translate = translate,
                                         indent=3)
 
-            args.output.write(machine)
+            with heaviside.utils.write(args.output) as fh:
+                fh.write(machine)
         elif args.command == "create":
             name = args.name
             if name is None:
