@@ -19,6 +19,7 @@ from .exceptions import CompileError
 
 USELESS = ['NEWLINE', 'NL', 'COMMENT']
 
+# DP TODO: Use __slots__ and or a generator to reduce overhead for tokenizing large files
 class Token(object):
     """Custom class wrapping all token properties"""
 

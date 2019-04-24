@@ -218,6 +218,9 @@ class ASTState(ASTNode):
             type_ = list(modifiers.mods.keys())[0]
             modifiers.mods[type_][0].raise_error("Unknown state modifer '{}'".format(type_))
 
+    def __repr__(self):
+        return "<ASTState {}:{}>".format(self.state_type, self.name)
+
 class ASTStatePass(ASTState):
     state_type = 'Pass'
     valid_modifiers = [ASTModInput, ASTModResult, ASTModOutput, ASTModData]
@@ -344,6 +347,9 @@ class ASTStepFunction(ASTNode):
         self.version = version
         self.timeout = timeout
         self.states = states
+
+    def __repr__(self):
+        return "\n".join(repr(state) for state in self.states)
 
 ##############################
 # AST Modification Functions #
