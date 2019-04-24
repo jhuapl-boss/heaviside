@@ -242,6 +242,9 @@ def parse(seq, translate=lambda x, y: y):
 
 
     # Simple States
+    # DP Note: The 'next' modifier is not allowed in general usage, must use the 'Goto'
+    #          state to create that modifier. If 'next' should be allowed from any state
+    #          just add it to 'state_modifier' and 'transform_modifier'
     state_modifier = ((n('timeout') + op_(':') + integer_pos >> make(ASTModTimeout)) |
                       (n('heartbeat') + op_(':') + integer_pos >> make(ASTModHeartbeat)) |
                       (n('input') + op_(':') + string >> make(ASTModInput)) |
@@ -253,13 +256,14 @@ def parse(seq, translate=lambda x, y: y):
     state_modifiers = state_modifier + many(state_modifier) >> make(ASTModifiers)
     state_block = maybe(block_s + maybe(string) + maybe(state_modifiers) + block_e)
 
+    goto = n('Goto') + op_('(') + string + op_(')') >> make(ASTStateGoto)
     pass_ = n('Pass') + op_('(') + op_(')') + state_block >> make(ASTStatePass)
     success = n('Success') + op_('(') + op_(')') + state_block >> make(ASTStateSuccess)
     fail = n('Fail') + op_('(') + string + op_(',') + string + op_(')') + state_block >> make(ASTStateFail)
     task = (n('Lambda') | n('Activity')) + op_('(') + string + op_(')') + state_block >> make(ASTStateTask)
     wait_types = n('seconds') | n('seconds_path') | n('timestamp') | n('timestamp_path')
     wait = n('Wait') + op_('(') + wait_types + op_('=') + (integer_pos|timestamp_or_string) + op_(')') + state_block >> make(ASTStateWait)
-    simple_state = pass_ | success | fail | task | wait
+    simple_state = goto | pass_ | success | fail | task | wait
 
     # Flow Control States
     transform_modifier = ((n('input') + op_(':') + string >> make(ASTModInput)) |

@@ -94,6 +94,12 @@ class ASTModKV(ASTValue):
     def __init__(self, key, value):
         super(ASTModKV, self).__init__(value, key.token)
 
+    def __repr__(self):
+        return "<ASTModKV {}:{}>".format(self.name, self.value)
+
+class ASTModNext(ASTModKV):
+    name = 'Next'
+
 class ASTModTimeout(ASTModKV):
     name = 'Timeout'
 
@@ -152,6 +158,9 @@ class ASTModifiers(ASTNode): #??? Subclass dict as well?
                 self.mods[key] = []
             self.mods[key].extend(other.mods[key])
 
+    def __repr__(self):
+        return "\n".join(repr(mod) for mod in self.mods.values())
+
 class ASTState(ASTNode):
     state_type = ''
     valid_modifiers = []
@@ -205,6 +214,7 @@ class ASTState(ASTNode):
 
             return vals
 
+        self.next = get(ASTModNext)
         self.timeout = get(ASTModTimeout)
         self.heartbeat = get(ASTModHeartbeat)
         self.input = get(ASTModInput)
@@ -224,6 +234,21 @@ class ASTState(ASTNode):
 class ASTStatePass(ASTState):
     state_type = 'Pass'
     valid_modifiers = [ASTModInput, ASTModResult, ASTModOutput, ASTModData]
+
+class ASTStateGoto(ASTStatePass):
+    """Custom version of Pass that exposes / sets the 'next' modifier"""
+    valid_modifiers = [ASTModNext]
+
+    def __init__(self, state, label):
+        # Create the state_modifer block manually
+        block = (None,
+                 ASTModifiers(
+                    ASTModNext(label, label.value),
+                    []
+                 )
+                )
+
+        super(ASTStateGoto, self).__init__(state, block)
 
 class ASTStateSuccess(ASTState):
     state_type = 'Succeed'
