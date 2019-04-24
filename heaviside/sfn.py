@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import unicode_literals
+
 import json
 from collections import OrderedDict
 
@@ -81,6 +83,8 @@ class StepFunction(Branch):
         Args:
             kwargs (dict): Arguments passed to json.dumps()
         """
+        kwargs.setdefault('ensure_ascii', False) # Allow Unicode in the output by default
+
         return json.dumps(self, cls=_StateMachineEncoder, **kwargs)
 
 class State(dict):
@@ -237,6 +241,12 @@ COMPARISON = {
         Timestamp: 'TimestampGreaterThanEquals',
     },
 }
+
+try:
+    for op in COMPARISON.keys():
+        COMPARISON[op][unicode] = COMPARISON[op][str]
+except NameError:
+    pass # Support Python2 Unicode string type
 
 def Choice(ast, target=None):
     if type(ast) == ASTCompOp:

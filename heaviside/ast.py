@@ -18,6 +18,7 @@ from funcparserlib.parser import (some, a, skip)
 
 from .lexer import Token
 from .exceptions import CompileError
+from .utils import isstr
 
 # AST Objects
 class ASTNode(object):
@@ -431,7 +432,7 @@ def link(states, final=None):
         if isinstance(state, ASTStateChoice):
             for key in state.branches:
                 states_ = state.branches[key]
-                if isinstance(states_, str):
+                if isstr(states_):
                     continue # already linked
                 linked_ = link(state.branches[key], final=next_)
                 # convert the branch from a list of states to the name of the next state
