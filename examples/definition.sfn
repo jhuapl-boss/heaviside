@@ -8,9 +8,6 @@ timeout: 60
 # ====== #
 
 
-Success() # Terminal state that ends execution sucessfully
-Fail("Error", "Cause") # Terminal state that ends execution with an error
-
 Pass() # Do nothing state. Can be used to modify / inject data
     """Function Name
     Comments go here"""
@@ -21,13 +18,13 @@ Pass() # Do nothing state. Can be used to modify / inject data
         { 'a': 'a', 'b': true, 'c': False, 'd': null }
 
 Lambda('FUNCTION_NAME')
-    """Step 2
+    """Lambda
     FUNCTION_NAME is used to create actual ARN
     input / results / output / data are all valid"""
     timeout: 60 # Lambda / Activity only
     heartbeat: 30 # Lambda / Activity only, must be less than timeout
-    retry ["Error(s)"] 0 0 0.0 # retry interval (seconds), max attempts, backoff rate
-    retry [] 0 0 0.0 # Empty error to match all errors (Same as State.ALL)
+    retry ["Error(s)"] 0 0 1.0 # retry interval (seconds), max attempts, backoff rate
+    retry [] 0 0 1.0 # Empty error to match all errors (Same as State.ALL)
     catch ["Error(s)"]:
         Pass()
     catch []: # Same as above
@@ -38,6 +35,17 @@ Lambda('FUNCTION_NAME')
 Activity('us-east-1:123456:activity:FUNCTION_NAME')
     # Activities are non-lambda functions that can run on EC2, ECS or anywhere else
     # The code just polls AWS to see if there is work available
+    timeout: 2
+    heartbeat: 1
+    input: '$.foo'
+    result: '$.foo'
+    output: '$.foo'
+    retry "one" 1 1 1
+    retry ['two'] 1 1 1
+    catch 'one':
+        Pass()
+    catch ['two']: '$.foo'
+        Success()
 
 # Four different versions of a sleep function
 # input / output are valid
@@ -63,9 +71,46 @@ Wait(timestamp_path='$.timestamp')
 if '$.a' == '1111-11-11T11:11:11Z' or \
    '$.a' == 1:
     Pass()
-elif '$.b' != "foo":
+elif '$.foo' == 1:
+    """If-Elif-Else"""
     Pass()
-elif '$.c' < 2:
+elif '$.foo' <= 1:
+    Pass()
+elif '$.foo' < 1:
+    Pass()
+elif '$.foo' >= 1:
+    Pass()
+elif '$.foo' > 1:
+    Pass()
+elif '$.foo' != 1:
+    Pass()
+elif '$.foo' == '1':
+    Pass()
+elif '$.foo' <= '1':
+    Pass()
+elif '$.foo' < '1':
+    Pass()
+elif '$.foo' >= '1':
+    Pass()
+elif '$.foo' > '1':
+    Pass()
+elif '$.foo' != '1':
+    Pass()
+elif '$.foo' == true:
+    Pass()
+elif '$.foo' != true:
+    Pass()
+elif '$.foo' == '1111-11-11T11:11:11Z':
+    Pass()
+elif '$.foo' <= '1111-11-11T11:11:11Z':
+    Pass()
+elif '$.foo' < '1111-11-11T11:11:11Z':
+    Pass()
+elif '$.foo' >= '1111-11-11T11:11:11Z':
+    Pass()
+elif '$.foo' > '1111-11-11T11:11:11Z':
+    Pass()
+elif '$.foo' != '1111-11-11T11:11:11Z':
     Pass()
 else:
     Pass()
@@ -73,10 +118,14 @@ transform:
     output: '$.foo'
 
 # while loop becomes a Choice State
-while '$' == 1:
+while '$.foo' == False:
+    """While"""
     Pass()
+        """While-Body"""
 transform:
     input: '$.foo'
+    result: '$.foo'
+    output: '$.foo'
 
 # switch statement becomes a Choice State
 # that only handles '==' cases
@@ -98,9 +147,16 @@ transform:
 parallel:
     """Parallel Name
     Only comments / step name from the first parallel block is used"""
-    Pass()
+    Success()
+        """Success
+        Comment"""
+        input: '$.foo'
+        output: '$.foo'
+
 parallel:
-    Pass()
+    Fail('error', 'cause')
+        """Fail
+        Comment"""
 transform:
     input: '$.foo'
 error:
