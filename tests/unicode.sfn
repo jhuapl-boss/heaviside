@@ -1,0 +1,30 @@
+{
+   "States": {
+      "Line6": {
+         "Resource": "arn:aws:lambda:::function:∑", 
+         "Type": "Task", 
+         "Next": "Line8"
+      }, 
+      "Line8": {
+         "Default": "Line8Default", 
+         "Type": "Choice", 
+         "Choices": [
+            {
+               "Variable": "$.£", 
+               "StringEquals": "√", 
+               "Next": "Ø"
+            }
+         ]
+      }, 
+      "Line8Default": {
+         "Type": "Succeed"
+      }, 
+      "Ø": {
+         "Cause": "$.→", 
+         "Type": "Fail", 
+         "Error": "!√"
+      }
+   }, 
+   "Comment": "Unicode support test\n\n»©«\n", 
+   "StartAt": "Line6"
+}

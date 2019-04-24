@@ -1,0 +1,10 @@
+"""Unicode support test
+
+»©«
+"""
+
+Lambda('∑')
+
+if "$.£" == '√':
+    Fail('!√', '$.→')
+        """Ø"""
