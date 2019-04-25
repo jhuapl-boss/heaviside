@@ -302,6 +302,7 @@ def parse(seq, translate=lambda x, y: y):
         link_branch(tree)
         check_names(tree)
         resolve_arns(tree, translate)
+        verify_goto_targets(tree)
         function = StepFunction(tree)
         #import code
         #code.interact(local=locals())

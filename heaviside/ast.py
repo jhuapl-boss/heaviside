@@ -484,16 +484,22 @@ def check_names(branch):
     Checks performed:
         * Name is not greater than 128 characters
         * No duplicate state names
+
+    Args:
+        branch (list): List of ASTState objects
+
+    Raises:
+        CompileError : If any of the checks fail
     """
     if not hasattr(branch, 'states'):
         branch.raise_error("Trying to check names for non-branch state")
 
     to_process = [branch.states]
-    names = set()
 
     while len(to_process) > 0:
         states = to_process.pop(0)
 
+        names = set() # State names are unique to the branch
         for state in states:
             if len(state.name) > MAX_NAME_LENGTH:
                 state.raise_error("Name exceedes {} characters".format(MAX_NAME_LENGTH))
@@ -517,6 +523,9 @@ def resolve_arns(branch, translate = lambda x, y: y):
         translate (callable): Callable that receives task type and ARN
                               Returned ARN replaces the current value in the
                               ASTStateTask
+
+    Raises:
+        CompileError : If the translate function raises an exception
     """
     if not hasattr(branch, 'states'):
         branch.raise_error("Trying to resolve arns for non-branch state")
@@ -532,3 +541,36 @@ def resolve_arns(branch, translate = lambda x, y: y):
             for branch in state.branches:
                 resolve_arns(branch, translate)
 
+def verify_goto_targets(branch):
+    """Recursivly checks that all Goto states target valid state names
+
+    Valid state names are those states in the current branch. This means that
+    a Goto cannot target states in another parallel branch or from a parallel
+    branch to the main body of the Step Function
+
+    Args:
+        branch (list): List of ASTState objects
+
+    Raises:
+        CompileError : If a Goto state targets an invalid state
+    """
+    if not hasattr(branch, 'states'):
+        branch.raise_error("Trying to check names for non-branch state")
+
+    to_process = [branch.states]
+
+    while len(to_process) > 0:
+        states = to_process.pop(0)
+
+        names = set() # Need to know all of the valid state names for the branch
+        for state in states:
+            names.add(state.name)
+
+            if isinstance(state, ASTStateParallel):
+                for branch in state.branches:
+                    to_process.append(branch.states)
+
+        for state in states:
+            if isinstance(state.next, ASTModNext):
+                if state.next.value not in names:
+                    state.raise_error("Goto target '{}' doesn't exist".format(state.next.value))
