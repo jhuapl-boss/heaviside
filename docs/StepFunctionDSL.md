@@ -181,18 +181,6 @@ Note: The Goto state doesn't allow any modifiers, unlike the rest of the states.
 
     Goto("State Name")
 
-    # Example
-    Lambda("Function")
-        catch []: '$.error'
-            Goto("error")
-
-    Success()
-
-    Lambda("ErrorFunction")
-        """error"""
-
-    Fail("error", "cause")
-
 #### Task State
 There are two types of task states, `Lambda()` and `Activity()`. The difference
 is where the code that will be executed is living. For `Lambda()` the code is a
