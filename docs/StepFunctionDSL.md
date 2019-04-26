@@ -37,6 +37,7 @@ libraries page.
     - [Success State](#Success-State)
     - [Fail State](#Fail-State)
     - [Pass State](#Pass-State)
+    - [Goto State](#Goto-State)
     - [Task State](#Task-State)
     - [Wait State](#Wait-State)
   - [Flow Control States](#Flow-Control-States)
@@ -170,6 +171,27 @@ Modifiers:
 * `result`: JsonPath of where to place the results of the state, relative to the
             raw input (before the `input` modifier was applied) (Default: `"$"`)
 * `data`: A block of Json data that will be used as the result of the state
+
+#### Goto State
+A state that does nothing `Goto()` can be used to transfer control to the named
+state. This is can be to create common error handling routines (among other
+uses).
+
+Note: The Goto state doesn't allow any modifiers, unlike the rest of the states.
+
+    Goto("State Name")
+
+    # Example
+    Lambda("Function")
+        catch []: '$.error'
+            Goto("error")
+
+    Success()
+
+    Lambda("ErrorFunction")
+        """error"""
+
+    Fail("error", "cause")
 
 #### Task State
 There are two types of task states, `Lambda()` and `Activity()`. The difference
