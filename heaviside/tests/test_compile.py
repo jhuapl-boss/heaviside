@@ -99,6 +99,9 @@ class TestCompile(unittest.TestCase):
     def test_duplicate_state_name(self):
         self.execute('error_duplicate_state_name.sfn', "Duplicate state name 'Test'")
 
+    def test_invalid_goto_target(self):
+        self.execute('error_invalid_goto_target.sfn', "Goto target 'Target' doesn't exist")
+
 class TestTranslate(unittest.TestCase):
     def test_lambda(self):
         expected = 'arn:aws:lambda:region:account:function:Test'

@@ -1,0 +1,7 @@
+
+parallel:
+    Pass()
+        "Target"
+
+parallel:
+    Goto("Target")
