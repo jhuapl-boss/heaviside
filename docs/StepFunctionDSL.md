@@ -37,7 +37,6 @@ libraries page.
     - [Success State](#Success-State)
     - [Fail State](#Fail-State)
     - [Pass State](#Pass-State)
-    - [Goto State](#Goto-State)
     - [Task State](#Task-State)
     - [Wait State](#Wait-State)
   - [Flow Control States](#Flow-Control-States)
@@ -46,6 +45,7 @@ libraries page.
     - [Switch](#Switch)
     - [While Loop](#While-Loop)
     - [Parallel](#Parallel)
+    - [Goto State](#Goto-State)
 
 ## Why
 When Amazon released AWS Step Functions they provided a [language definition]
@@ -171,15 +171,6 @@ Modifiers:
 * `result`: JsonPath of where to place the results of the state, relative to the
             raw input (before the `input` modifier was applied) (Default: `"$"`)
 * `data`: A block of Json data that will be used as the result of the state
-
-#### Goto State
-A state that does nothing `Goto()` can be used to transfer control to the named
-state. This is can be to create common error handling routines (among other
-uses).
-
-Note: The Goto state doesn't allow any modifiers, unlike the rest of the states.
-
-    Goto("State Name")
 
 #### Task State
 There are two types of task states, `Lambda()` and `Activity()`. The difference
@@ -365,6 +356,16 @@ Modifiers:
             next state (Default: `"$"`)
 
 The `error` block contains the same `retry` and `catch` modifiers as the task state.
+
+#### Goto
+The `goto` control statement allows jumping to another state instead of continuing
+to the next state. This can be used to create common error handling routines (among
+other uses.
+
+The state can only target states within the current branch of execution.  This
+means either the main body of the Step Function or a branch of a Parallel state.
+
+    goto "State Name"
 
 [stepfunctions library]: https://github.com/jhuapl-boss/heaviside
 [language definition]: https://states-language.net/spec.html

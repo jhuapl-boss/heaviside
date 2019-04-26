@@ -4,4 +4,4 @@ parallel:
         "Target"
 
 parallel:
-    Goto("Target")
+    goto "Target"

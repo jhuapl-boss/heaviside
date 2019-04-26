@@ -141,4 +141,4 @@ transform:
 error:
     retry [] 1 0 1.0
     catch []:
-        Goto('Switch')
+        goto 'Switch'
