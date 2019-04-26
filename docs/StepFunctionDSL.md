@@ -358,12 +358,12 @@ Modifiers:
 The `error` block contains the same `retry` and `catch` modifiers as the task state.
 
 #### Goto
-The `goto` control statement allows jumping to another state instead of continuing
-to the next state. This can be used to create common error handling routines (among
-other uses.
+The `goto` control statement allows jumping to another state. This can be used
+to create common error handling routines (among other uses).
 
 The state can only target states within the current branch of execution.  This
-means either the main body of the Step Function or a branch of a Parallel state.
+means either the main body of the Step Function or within a branch of a Parallel
+state.
 
     goto "State Name"
 
