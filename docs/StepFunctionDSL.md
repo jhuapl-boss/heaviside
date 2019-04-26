@@ -45,7 +45,7 @@ libraries page.
     - [Switch](#Switch)
     - [While Loop](#While-Loop)
     - [Parallel](#Parallel)
-    - [Goto State](#Goto-State)
+    - [Goto](#Goto)
 
 ## Why
 When Amazon released AWS Step Functions they provided a [language definition]
