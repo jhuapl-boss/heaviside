@@ -555,7 +555,7 @@ def verify_goto_targets(branch):
         CompileError : If a Goto state targets an invalid state
     """
     if not hasattr(branch, 'states'):
-        branch.raise_error("Trying to check names for non-branch state")
+        branch.raise_error("Trying to check goto targets for non-branch state")
 
     to_process = [branch.states]
 
@@ -573,4 +573,4 @@ def verify_goto_targets(branch):
         for state in states:
             if isinstance(state.next, ASTModNext):
                 if state.next.value not in names:
-                    state.raise_error("Goto target '{}' doesn't exist".format(state.next.value))
+                    state.next.raise_error("Goto target '{}' doesn't exist".format(state.next.value))
