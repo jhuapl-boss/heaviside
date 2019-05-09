@@ -20,6 +20,20 @@ from .lexer import Token
 from .exceptions import CompileError
 from .utils import isstr
 
+#################################################
+#### Load AWS Service Integration Definitions####
+#################################################
+
+import os
+import json
+cur_dir = os.path.dirname(__file__)
+definitions = os.path.join(cur_dir, 'aws_services.json')
+with open(definitions, 'r') as fh:
+    AWS_SERVICES = json.load(fh)
+
+#################################################
+#################################################
+
 # AST Objects
 class ASTNode(object):
     def __init__(self, token=None):
@@ -152,6 +166,33 @@ class ASTModifiers(ASTNode): #??? Subclass dict as well?
                 self.mods[key] = []
             self.mods[key].extend(other.mods[key])
 
+class ASTArgsKwargs(ASTNode):
+    def __init__(self, *tokens):
+        if tokens == (None, None):
+            node = None
+        else:
+            node = tokens[0] if tokens[0] is not None else tokens[1][0]
+
+        super(ASTArgsKwargs, self).__init__(node.token if node else None)
+
+        tokens = list(tokens) # Convert from tuple to list so it can be modified
+
+        self.args = []
+        self.kwargs = OrderedDict()
+
+        arg = tokens.pop(0)
+        if arg:
+            self.args.append(arg)
+            for arg in tokens.pop(0):
+                self.args.append(arg)
+
+        kwargs = tokens.pop(0)
+        if kwargs:
+            k, v, kvs = kwargs
+            self.kwargs[k] = v
+            for k, v in kvs:
+                self.kwargs[k] = v
+
 class ASTState(ASTNode):
     state_type = ''
     valid_modifiers = []
@@ -247,9 +288,70 @@ class ASTStateTask(ASTState):
                        ASTModRetry,
                        ASTModCatch]
 
-    def __init__(self, state, arn, block):
-        super(ASTStateTask, self).__init__(state, block)
-        self.arn = arn
+    valid_services = ['Arn',
+                      'Lambda',
+                      'Activity']
+
+    def __init__(self, service, function, args_kwargs, block):
+        super(ASTStateTask, self).__init__(service, block)
+
+        if service.value not in self.valid_services and \
+           service.value not in AWS_SERVICES.keys():
+            service.raise_error('Invalid Task service')
+
+        if function is None:
+            if service.value in ('Lambda', 'Activity', 'Arn'):
+                if len(args_kwargs.args) == 0:
+                    service.raise_error('{} task requires a function name argument'.format(service.value))
+
+                function = args_kwargs.args.pop(0)
+            else:
+                service.raise_error('{} task requires a function to call'.format(service.value))
+        else:
+            if service.value in ('Lambda', 'Activity', 'Arn'):
+                function.raise_error('Unexpected function name')
+            else:
+                try:
+                    function.lookup = function.value # Save value for looking up when checking kwargs
+                    function.value = AWS_SERVICES[service.value][function.value]['name']
+                except KeyError:
+                    function.raise_error('Invalid Task function')
+
+        if service.value == 'Arn' and not function.value.startswith('arn:aws:'):
+            function.raise_error("ARN must start with 'arn:aws:'")
+        if len(args_kwargs.args) > 0:
+            args_kwargs.args[0].raise_error('Unexpected argument')
+        if service.value in ('Lambda', 'Activity') and len(args_kwargs.kwargs) > 0:
+            tuple(args_kwargs.kwargs.keys())[0].raise_error('Unexpected keyword argument')
+
+        if service.value not in ('Lambda', 'Activity', 'Arn'):
+            required = AWS_SERVICES[service.value][function.lookup]['required_keys']
+            optional = AWS_SERVICES[service.value][function.lookup]['optional_keys']
+
+            for key in args_kwargs.kwargs.keys():
+                if key.value == 'sync':
+                    value = args_kwargs.kwargs[key]
+                    if type(value) != bool:
+                        key.raise_error("Synchronous value must be a boolean")
+                    if value == True:
+                        function.value += '.sync'
+                    del args_kwargs.kwargs[key]
+                elif key.value in required:
+                    required.remove(key.value)
+                elif key.value not in optional:
+                    key.raise_error("Invalid keyword argument")
+
+            if len(required) > 0:
+                missing = ", ".join(required)
+                function.raise_error("Missing required keyword arguments: {}".format(missing))
+
+        self.service = service
+        self.function = function
+
+        if len(args_kwargs.kwargs) > 0:
+            self.parameters = args_kwargs.kwargs
+        else:
+            self.parameters = None
 
 class ASTStateWait(ASTState):
     state_type = 'Wait'
@@ -482,7 +584,7 @@ def check_names(branch):
                 for branch in state.branches:
                     to_process.append(branch.states)
 
-def resolve_arns(branch, translate = lambda x, y: y):
+def resolve_arns(branch, region = '', account_id = ''):
     """AST Transform that looks for all Task states and passed the task type
     and (partial) ARN to a callback. Used for resolving partial ARNs to full
     ARNs.
@@ -498,12 +600,19 @@ def resolve_arns(branch, translate = lambda x, y: y):
 
     for state in branch.states:
         if isinstance(state, ASTStateTask):
-            try:
-                state.arn.value = translate(state.token.value, state.arn.value)
-            except Exception as e:
-                state.raise_error(str(e))
+            if state.service.value == 'Arn':
+                # ARN value already checked in ASTStateTask
+                state.arn = state.function.value
+            else:
+                lambda_or_state = 'lambda' if state.service.value == 'Lambda' else 'states'
+                parts = ['arn', 'aws',
+                         lambda_or_state,
+                         region, account_id,
+                         state.service.value.lower(),
+                         state.function.value]
+                state.arn = ":".join(parts)
 
         elif isinstance(state, ASTStateParallel):
             for branch in state.branches:
-                resolve_arns(branch, translate)
+                resolve_arns(branch, region, account_id)
 

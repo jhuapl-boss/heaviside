@@ -140,10 +140,10 @@ if __name__ == '__main__':
 
             region = find_('region')
             account = find_('account_id')
-            translate = heaviside.create_translate(region, account)
 
             machine = heaviside.compile(Path(args.file),
-                                        translate = translate,
+                                        region,
+                                        account,
                                         indent=3)
 
             with heaviside.utils.write(args.output) as fh:

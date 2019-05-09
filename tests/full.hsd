@@ -34,6 +34,159 @@ Lambda('arn')
 Activity('activity:FUNCTION_NAME')
     """Activity"""
 
+Arn('arn:aws:state:region:account:service:function',
+    KeyOne = 'ValueOne',
+    KeyTwo = 'ValueTwo',
+    sync = True)
+    """Raw ARN Task"""
+
+Batch.SubmitJob(JobName = 'Name',
+                JobDefinition = '',
+                JobQueue = 'arn',
+
+                # Optional keyword arguments
+                ArrayProperties = {},
+                ContainerOverrides = {},
+                DependsOn = [],
+                Parameters = {},
+                RetryStrategy = {},
+                Timeout = {},
+                sync = False)
+                """Batch.SubmitJob"""
+
+DynamoDB.GetItem(TableName = 'Table',
+                 Key = {},
+
+                 # Optional keyword arguments
+                 AttributesToGet = [],
+                 ConsistentRead = True,
+                 ExpressionAttributeNames = {},
+                 ProjectionExpression = '',
+                 ReturnConsumedCapacity = '')
+                 """DynamoDB.GetItem"""
+
+DynamoDB.PutItem(TableName = 'Table',
+                 Item = {},
+
+                 # Optional keyword arguments
+                 ConditionalOperator = '',
+                 ConditionExpression = '',
+                 Expected = {},
+                 ExpressionAttributeNames = {},
+                 ExpressionAttributeValues = {},
+                 ReturnConsumedCapacity = '',
+                 ReturnItemCollectionMetrics = '',
+                 ReturnValues = '')
+                 """DynamoDB.PutItem"""
+
+DynamoDB.DeleteItem(TableName = 'Table',
+                    Key = {},
+
+                    # Optional keyword arguments
+                    ConditionalOperator = '',
+                    ConditionExpression = '',
+                    Expected = {},
+                    ExpressionAttributeNames = {},
+                    ExpressionAttributeValues = {},
+                    ReturnConsumedCapacity = '',
+                    ReturnItemCollectionMetrics = '',
+                    ReturnValues = '')
+                    """DynamoDB.DeleteItem"""
+
+DynamoDB.UpdateItem(TableName = 'Table',
+                    Key = {},
+
+                    # Optional keyword arguments
+                    AttributeUpdates = {},
+                    ConditionalOperator = '',
+                    ConditionExpression = '',
+                    Expected = {},
+                    ExpressionAttributeNames = {},
+                    ExpressionAttributeValues = {},
+                    ReturnConsumedCapacity = '',
+                    ReturnItemCollectionMetrics = '',
+                    ReturnValues = '',
+                    UpdateExpression = '')
+                    """DynamoDB.UpdateItem"""
+
+ECS.RunTask(TaskDefinition = '',
+
+            # Optional keyword arguments
+            Cluster = '',
+            Group = '',
+            LaunchType = '',
+            NetworkConfiguration = {},
+            Overrides = {},
+            PlacementConstraints = {},
+            PlacementStrategy = {},
+            PlatformVersion = '',
+            sync = True)
+            """ECS.RunTask"""
+
+SNS.Publish(Message = '',
+
+            # Optional keyword arguments
+            MessageAttributes = {},
+            MessageStructure = '',
+            PhoneNumber = '',
+            Subject = '',
+            TargetArn = '',
+            TopicArn = '')
+            """SNS.Publish"""
+
+SQS.SendMessage(QueueUrl = '',
+                MessageBody = '',
+
+                # Optional keyword arguments
+                DelaySeconds = 0,
+                MessageAttributes = {},
+                MessageDeduplicationId = '',
+                MessageGroupId = '')
+                """SQS.SendMessage"""
+
+Glue.StartJobRun(JobName = '',
+
+                 # Optional keyword arguments
+                 JobRunId = '',
+                 Arguments = {},
+                 AllocatedCapacity = 0,
+                 Timeout = 1,
+                 SecurityConfiguration = '',
+                 NotificationProperty = {},
+                 sync = True)
+                 """Glue.StartJobRun"""
+
+SageMaker.CreateTrainingJob(TrainingJobName = '',
+                            AlgorithmSpecification = {},
+                            OutputDataConfig = {},
+                            ResourceConfig = {},
+                            RoleArn = '',
+                            StoppingCondition = {},
+
+                            # Optional keyword arguments
+                            HyperParameters = {},
+                            InputDataConfig = [],
+                            Tags = [],
+                            VpcConfig = {},
+                            sync = True)
+                            """SageMaker.CreateTrainingJob"""
+
+SageMaker.CreateTransformJob(TransformJobName = '',
+                             ModelName = '',
+                             TransformInput = {},
+                             TransformOutput = {},
+                             TransformResources = {},
+
+                             # Optional keyword arguments
+                             BatchStrategy = '',
+                             Environment = {},
+                             MaxConcurrentTransforms = 0,
+                             MaxPayloadInMB = 0,
+                             Tags = [],
+                             sync = True)
+                             """SageMaker.CreateTransformJob"""
+
+
 Wait(seconds=1)
     """Wait-Seconds"""
 Wait(timestamp='1111-11-11T11:11:11Z')
@@ -118,6 +271,9 @@ parallel:
     Success()
         """Success
         Comment"""
+        # DP NOTE 2019/05/19: AWS Console considers InputPath / OutputPath
+        # invalid for the Succeed state, even though the language definition
+        # says it is valid, but will allow creating a Step Function with them
         input: '$.foo'
         output: '$.foo'
 

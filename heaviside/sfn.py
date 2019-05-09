@@ -139,7 +139,9 @@ class State(dict):
             self['Cause'] = ast.cause.value
 
         if ast.state_type == 'Task':
-            self['Resource'] = ast.arn.value
+            self['Resource'] = ast.arn
+            if ast.parameters is not None:
+                self['Parameters'] = Parameters(ast.parameters)
 
         if ast.state_type == 'Wait':
             key = ''.join([t.capitalize() for t in ast.type.value.split('_')])
@@ -207,6 +209,12 @@ class Retry(dict):
         self['IntervalSeconds'] = ast.interval.value
         self['MaxAttempts'] = ast.max.value
         self['BackoffRate'] = float(ast.backoff.value)
+
+def Parameters(ast):
+    rst = OrderedDict()
+    for k,v in ast.items():
+        rst[k.value] = v # JSON Text is already unwrapped
+    return rst
 
 COMPARISON = {
     '==': {

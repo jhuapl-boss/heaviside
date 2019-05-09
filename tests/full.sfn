@@ -29,7 +29,7 @@
                "BackoffRate": 1.0
             }
          ], 
-         "Resource": "arn:aws:lambda:::function:arn", 
+         "Resource": "arn:aws:lambda:::lambda:arn", 
          "TimeoutSeconds": 2, 
          "ResultPath": "$.foo", 
          "HeartbeatSeconds": 1, 
@@ -61,8 +61,192 @@
          "Type": "Succeed"
       }, 
       "Activity": {
-         "Resource": "arn:aws:states:::activity:FUNCTION_NAME", 
+         "Resource": "arn:aws:states:::activity:activity:FUNCTION_NAME", 
          "Type": "Task", 
+         "Next": "Raw ARN Task"
+      }, 
+      "Raw ARN Task": {
+         "Resource": "arn:aws:state:region:account:service:function", 
+         "Type": "Task", 
+         "Parameters": {
+            "KeyOne": "ValueOne", 
+            "KeyTwo": "ValueTwo", 
+            "sync": true
+         }, 
+         "Next": "Batch.SubmitJob"
+      }, 
+      "Batch.SubmitJob": {
+         "Resource": "arn:aws:states:::batch:submitJob", 
+         "Type": "Task", 
+         "Parameters": {
+            "JobName": "Name", 
+            "JobDefinition": "", 
+            "JobQueue": "arn", 
+            "ArrayProperties": {}, 
+            "ContainerOverrides": {}, 
+            "DependsOn": [], 
+            "Parameters": {}, 
+            "RetryStrategy": {}, 
+            "Timeout": {}
+         }, 
+         "Next": "DynamoDB.GetItem"
+      }, 
+      "DynamoDB.GetItem": {
+         "Resource": "arn:aws:states:::dynamodb:getItem", 
+         "Type": "Task", 
+         "Parameters": {
+            "TableName": "Table", 
+            "Key": {}, 
+            "AttributesToGet": [], 
+            "ConsistentRead": true, 
+            "ExpressionAttributeNames": {}, 
+            "ProjectionExpression": "", 
+            "ReturnConsumedCapacity": ""
+         }, 
+         "Next": "DynamoDB.PutItem"
+      }, 
+      "DynamoDB.PutItem": {
+         "Resource": "arn:aws:states:::dynamodb:putItem", 
+         "Type": "Task", 
+         "Parameters": {
+            "TableName": "Table", 
+            "Item": {}, 
+            "ConditionalOperator": "", 
+            "ConditionExpression": "", 
+            "Expected": {}, 
+            "ExpressionAttributeNames": {}, 
+            "ExpressionAttributeValues": {}, 
+            "ReturnConsumedCapacity": "", 
+            "ReturnItemCollectionMetrics": "", 
+            "ReturnValues": ""
+         }, 
+         "Next": "DynamoDB.DeleteItem"
+      }, 
+      "DynamoDB.DeleteItem": {
+         "Resource": "arn:aws:states:::dynamodb:deleteItem", 
+         "Type": "Task", 
+         "Parameters": {
+            "TableName": "Table", 
+            "Key": {}, 
+            "ConditionalOperator": "", 
+            "ConditionExpression": "", 
+            "Expected": {}, 
+            "ExpressionAttributeNames": {}, 
+            "ExpressionAttributeValues": {}, 
+            "ReturnConsumedCapacity": "", 
+            "ReturnItemCollectionMetrics": "", 
+            "ReturnValues": ""
+         }, 
+         "Next": "DynamoDB.UpdateItem"
+      }, 
+      "DynamoDB.UpdateItem": {
+         "Resource": "arn:aws:states:::dynamodb:updateItem", 
+         "Type": "Task", 
+         "Parameters": {
+            "TableName": "Table", 
+            "Key": {}, 
+            "AttributeUpdates": {}, 
+            "ConditionalOperator": "", 
+            "ConditionExpression": "", 
+            "Expected": {}, 
+            "ExpressionAttributeNames": {}, 
+            "ExpressionAttributeValues": {}, 
+            "ReturnConsumedCapacity": "", 
+            "ReturnItemCollectionMetrics": "", 
+            "ReturnValues": "", 
+            "UpdateExpression": ""
+         }, 
+         "Next": "ECS.RunTask"
+      }, 
+      "ECS.RunTask": {
+         "Resource": "arn:aws:states:::ecs:runTask.sync", 
+         "Type": "Task", 
+         "Parameters": {
+            "TaskDefinition": "", 
+            "Cluster": "", 
+            "Group": "", 
+            "LaunchType": "", 
+            "NetworkConfiguration": {}, 
+            "Overrides": {}, 
+            "PlacementConstraints": {}, 
+            "PlacementStrategy": {}, 
+            "PlatformVersion": ""
+         }, 
+         "Next": "SNS.Publish"
+      }, 
+      "SNS.Publish": {
+         "Resource": "arn:aws:states:::sns:publish", 
+         "Type": "Task", 
+         "Parameters": {
+            "Message": "", 
+            "MessageAttributes": {}, 
+            "MessageStructure": "", 
+            "PhoneNumber": "", 
+            "Subject": "", 
+            "TargetArn": "", 
+            "TopicArn": ""
+         }, 
+         "Next": "SQS.SendMessage"
+      }, 
+      "SQS.SendMessage": {
+         "Resource": "arn:aws:states:::sqs:sendMessage", 
+         "Type": "Task", 
+         "Parameters": {
+            "QueueUrl": "", 
+            "MessageBody": "", 
+            "DelaySeconds": 0, 
+            "MessageAttributes": {}, 
+            "MessageDeduplicationId": "", 
+            "MessageGroupId": ""
+         }, 
+         "Next": "Glue.StartJobRun"
+      }, 
+      "Glue.StartJobRun": {
+         "Resource": "arn:aws:states:::glue:startJobRun.sync", 
+         "Type": "Task", 
+         "Parameters": {
+            "JobName": "", 
+            "JobRunId": "", 
+            "Arguments": {}, 
+            "AllocatedCapacity": 0, 
+            "Timeout": 1, 
+            "SecurityConfiguration": "", 
+            "NotificationProperty": {}
+         }, 
+         "Next": "SageMaker.CreateTrainingJob"
+      }, 
+      "SageMaker.CreateTrainingJob": {
+         "Resource": "arn:aws:states:::sagemaker:createTrainingJob.sync", 
+         "Type": "Task", 
+         "Parameters": {
+            "TrainingJobName": "", 
+            "AlgorithmSpecification": {}, 
+            "OutputDataConfig": {}, 
+            "ResourceConfig": {}, 
+            "RoleArn": "", 
+            "StoppingCondition": {}, 
+            "HyperParameters": {}, 
+            "InputDataConfig": [], 
+            "Tags": [], 
+            "VpcConfig": {}
+         }, 
+         "Next": "SageMaker.CreateTransformJob"
+      }, 
+      "SageMaker.CreateTransformJob": {
+         "Resource": "arn:aws:states:::sagemaker:createTransformJob.sync", 
+         "Type": "Task", 
+         "Parameters": {
+            "TransformJobName": "", 
+            "ModelName": "", 
+            "TransformInput": {}, 
+            "TransformOutput": {}, 
+            "TransformResources": {}, 
+            "BatchStrategy": "", 
+            "Environment": {}, 
+            "MaxConcurrentTransforms": 0, 
+            "MaxPayloadInMB": 0, 
+            "Tags": []
+         }, 
          "Next": "Wait-Seconds"
       }, 
       "Wait-Seconds": {
@@ -132,58 +316,58 @@
                      ]
                   }
                ], 
-               "Next": "Line63"
+               "Next": "Line216"
             }, 
             {
                "Variable": "$.foo", 
                "NumericLessThanEquals": 1, 
-               "Next": "Line65"
+               "Next": "Line218"
             }, 
             {
                "Variable": "$.foo", 
                "NumericLessThan": 1, 
-               "Next": "Line67"
+               "Next": "Line220"
             }, 
             {
                "Variable": "$.foo", 
                "NumericGreaterThanEquals": 1, 
-               "Next": "Line69"
+               "Next": "Line222"
             }, 
             {
                "Variable": "$.foo", 
                "NumericGreaterThan": 1, 
-               "Next": "Line71"
+               "Next": "Line224"
             }, 
             {
                "Not": {
                   "Variable": "$.foo", 
                   "NumericEquals": 1
                }, 
-               "Next": "Line73"
+               "Next": "Line226"
             }, 
             {
                "Variable": "$.foo", 
                "StringEquals": "1", 
-               "Next": "Line75"
+               "Next": "Line228"
             }, 
             {
                "Variable": "$.foo", 
                "StringLessThanEquals": "1", 
-               "Next": "Line77"
+               "Next": "Line230"
             }, 
             {
                "Variable": "$.foo", 
                "StringLessThan": "1", 
-               "Next": "Line79"
+               "Next": "Line232"
             }, 
             {
                "Variable": "$.foo", 
                "StringGreaterThanEquals": "1", 
-               "Next": "Line81"
+               "Next": "Line234"
             }, 
             {
                "Variable": "$.foo", 
-               "Next": "Line83", 
+               "Next": "Line236", 
                "StringGreaterThan": "1"
             }, 
             {
@@ -191,169 +375,169 @@
                   "Variable": "$.foo", 
                   "StringEquals": "1"
                }, 
-               "Next": "Line85"
+               "Next": "Line238"
             }, 
             {
                "Variable": "$.foo", 
                "BooleanEquals": true, 
-               "Next": "Line87"
+               "Next": "Line240"
             }, 
             {
                "Not": {
                   "Variable": "$.foo", 
                   "BooleanEquals": true
                }, 
-               "Next": "Line89"
+               "Next": "Line242"
             }, 
             {
                "Variable": "$.foo", 
                "TimestampEquals": "1111-11-11T11:11:11Z", 
-               "Next": "Line91"
+               "Next": "Line244"
             }, 
             {
                "Variable": "$.foo", 
                "TimestampLessThanEquals": "1111-11-11T11:11:11Z", 
-               "Next": "Line93"
+               "Next": "Line246"
             }, 
             {
                "Variable": "$.foo", 
                "TimestampLessThan": "1111-11-11T11:11:11Z", 
-               "Next": "Line95"
+               "Next": "Line248"
             }, 
             {
                "Variable": "$.foo", 
                "TimestampGreaterThanEquals": "1111-11-11T11:11:11Z", 
-               "Next": "Line97"
+               "Next": "Line250"
             }, 
             {
                "Variable": "$.foo", 
                "TimestampGreaterThan": "1111-11-11T11:11:11Z", 
-               "Next": "Line99"
+               "Next": "Line252"
             }, 
             {
                "Not": {
                   "Variable": "$.foo", 
                   "TimestampEquals": "1111-11-11T11:11:11Z"
                }, 
-               "Next": "Line101"
+               "Next": "Line254"
             }
          ]
       }, 
-      "Line63": {
+      "Line216": {
          "Type": "Pass", 
          "Next": "Switch"
       }, 
-      "Line65": {
+      "Line218": {
          "Type": "Pass", 
          "Next": "Switch"
       }, 
-      "Line67": {
+      "Line220": {
          "Type": "Pass", 
          "Next": "Switch"
       }, 
-      "Line69": {
+      "Line222": {
          "Type": "Pass", 
          "Next": "Switch"
       }, 
-      "Line71": {
+      "Line224": {
          "Type": "Pass", 
          "Next": "Switch"
       }, 
-      "Line73": {
+      "Line226": {
          "Type": "Pass", 
          "Next": "Switch"
       }, 
-      "Line75": {
+      "Line228": {
          "Type": "Pass", 
          "Next": "Switch"
       }, 
-      "Line77": {
+      "Line230": {
          "Type": "Pass", 
          "Next": "Switch"
       }, 
-      "Line79": {
+      "Line232": {
          "Type": "Pass", 
          "Next": "Switch"
       }, 
-      "Line81": {
+      "Line234": {
          "Type": "Pass", 
          "Next": "Switch"
       }, 
-      "Line83": {
+      "Line236": {
          "Type": "Pass", 
          "Next": "Switch"
       }, 
-      "Line85": {
+      "Line238": {
          "Type": "Pass", 
          "Next": "Switch"
       }, 
-      "Line87": {
+      "Line240": {
          "Type": "Pass", 
          "Next": "Switch"
       }, 
-      "Line89": {
+      "Line242": {
          "Type": "Pass", 
          "Next": "Switch"
       }, 
-      "Line91": {
+      "Line244": {
          "Type": "Pass", 
          "Next": "Switch"
       }, 
-      "Line93": {
+      "Line246": {
          "Type": "Pass", 
          "Next": "Switch"
       }, 
-      "Line95": {
+      "Line248": {
          "Type": "Pass", 
          "Next": "Switch"
       }, 
-      "Line97": {
+      "Line250": {
          "Type": "Pass", 
          "Next": "Switch"
       }, 
-      "Line99": {
+      "Line252": {
          "Type": "Pass", 
          "Next": "Switch"
       }, 
-      "Line101": {
+      "Line254": {
          "Type": "Pass", 
          "Next": "Switch"
       }, 
       "Switch": {
          "OutputPath": "$.foo", 
-         "Default": "Line112", 
+         "Default": "Line265", 
          "Type": "Choice", 
          "Choices": [
             {
                "Variable": "$.a", 
-               "Next": "Line106", 
+               "Next": "Line259", 
                "NumericEquals": 1
             }, 
             {
                "Variable": "$.a", 
                "StringEquals": "foo", 
-               "Next": "Line108"
+               "Next": "Line261"
             }, 
             {
                "Variable": "$.a", 
                "TimestampEquals": "1111-11-11T11:11:11Z", 
-               "Next": "Line110"
+               "Next": "Line263"
             }
          ]
       }, 
-      "Line106": {
+      "Line259": {
          "Type": "Pass", 
          "Next": "Parallel"
       }, 
-      "Line108": {
+      "Line261": {
          "Type": "Pass", 
          "Next": "Parallel"
       }, 
-      "Line110": {
+      "Line263": {
          "Type": "Pass", 
          "Next": "Parallel"
       }, 
-      "Line112": {
+      "Line265": {
          "Type": "Pass", 
          "Next": "Parallel"
       }, 
@@ -397,14 +581,14 @@
                "ErrorEquals": [
                   "States.ALL"
                ], 
-               "Next": "Line134"
+               "Next": "Line290"
             }
          ], 
          "InputPath": "$.foo", 
          "End": true, 
          "Type": "Parallel"
       }, 
-      "Line134": {
+      "Line290": {
          "End": true, 
          "Type": "Pass"
       }

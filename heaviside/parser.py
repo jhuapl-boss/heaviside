@@ -78,6 +78,8 @@ def n_(name):
     """Skip the name with the given value"""
     return skip(n(name))
 
+name = toktype('NAME')
+
 # Define true and false in terms of Python boolean values
 true = (n('true') | n('True')) >> const(True)
 false = (n('false') | n('False')) >> const(False)
@@ -190,9 +192,8 @@ def json_text():
         | array
         | (number >> unwrap)
         | (string >> unwrap))
-    json_text = object | array
 
-    return json_text
+    return value
 
 def comparison_():
     """Returns the parse for a compound compare statement"""
@@ -219,7 +220,7 @@ def comparison_():
     return comp_stmt
 comparison = comparison_()
 
-def parse(seq, translate=lambda x, y: y):
+def parse(seq, region = '', account_id = ''):
     """Parse the given sequence of tokens into a StateMachine object
 
     Args:
@@ -253,13 +254,18 @@ def parse(seq, translate=lambda x, y: y):
     state_modifiers = state_modifier + many(state_modifier) >> make(ASTModifiers)
     state_block = maybe(block_s + maybe(string) + maybe(state_modifiers) + block_e)
 
+    # TODO: figure out if there is a better way to structure grammer
+    args_kwargs = maybe(string + many(op_(',') + string)) + \
+                  skip(maybe(op_(','))) + \
+                  maybe(name + op_('=') + json_text() + many(op_(',') + name + op_('=') + json_text())) >> make(ASTArgsKwargs)
+
     pass_ = n('Pass') + op_('(') + op_(')') + state_block >> make(ASTStatePass)
     success = n('Success') + op_('(') + op_(')') + state_block >> make(ASTStateSuccess)
     fail = n('Fail') + op_('(') + string + op_(',') + string + op_(')') + state_block >> make(ASTStateFail)
-    task = (n('Lambda') | n('Activity')) + op_('(') + string + op_(')') + state_block >> make(ASTStateTask)
     wait_types = n('seconds') | n('seconds_path') | n('timestamp') | n('timestamp_path')
     wait = n('Wait') + op_('(') + wait_types + op_('=') + (integer_pos|timestamp_or_string) + op_(')') + state_block >> make(ASTStateWait)
-    simple_state = pass_ | success | fail | task | wait
+    task = name + maybe(op_('.') + name) + op_('(') + args_kwargs + op_(')') + state_block >> make(ASTStateTask)
+    simple_state = pass_ | success | fail | wait | task
 
     # Flow Control States
     transform_modifier = ((n('input') + op_(':') + string >> make(ASTModInput)) |
@@ -297,7 +303,7 @@ def parse(seq, translate=lambda x, y: y):
         (tree, _) = machine.run(seq, State())
         link_branch(tree)
         check_names(tree)
-        resolve_arns(tree, translate)
+        resolve_arns(tree, region, account_id)
         function = StepFunction(tree)
         #import code
         #code.interact(local=locals())
