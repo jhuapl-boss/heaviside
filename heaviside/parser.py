@@ -220,7 +220,7 @@ def comparison_():
     return comp_stmt
 comparison = comparison_()
 
-def parse(seq, region = '', account_id = ''):
+def parse(seq, region = '', account_id = '', visitors=[]):
     """Parse the given sequence of tokens into a StateMachine object
 
     Args:
@@ -304,6 +304,8 @@ def parse(seq, region = '', account_id = ''):
         link_branch(tree)
         check_names(tree)
         resolve_arns(tree, region, account_id)
+        for visitor in visitors:
+            visitor.visit(tree)
         function = StepFunction(tree)
         #import code
         #code.interact(local=locals())

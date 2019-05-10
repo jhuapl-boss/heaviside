@@ -14,6 +14,7 @@
 
 import os
 import sys
+import json
 import unittest
 from io import StringIO
 
@@ -132,3 +133,13 @@ class TestCompile(unittest.TestCase):
     def test_missing_task_keyword_argument(self):
         self.execute('error_missing_task_keyword_argument.sfn', "Missing required keyword arguments: JobDefinition, JobQueue")
 
+    def test_visitor(self):
+        class TestVisitor(heaviside.ast.StateVisitor):
+            def task(self, task):
+                task.arn = 'modified'
+
+        hsd = """Lambda('function')"""
+        out = heaviside.compile(hsd, visitors=[TestVisitor()])
+        out = json.loads(out)
+
+        self.assertEqual(out['States']['Line1']['Resource'], 'modified')

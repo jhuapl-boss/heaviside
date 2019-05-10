@@ -616,3 +616,23 @@ def resolve_arns(branch, region = '', account_id = ''):
             for branch in state.branches:
                 resolve_arns(branch, region, account_id)
 
+class StateVisitor(object):
+    def dispatch(self, state):
+        if isinstance(state, ASTStateTask):
+            self.task(state)
+        else:
+            raise ValueError('State type {} not supported'.format(type(state)))
+
+    def visit(self, branch):
+        if not hasattr(branch, 'states'):
+            raise ValueError("Tryping to visit non-branch state: {}".format(branch))
+
+        for state in branch.states:
+            self.dispatch(state)
+
+            if isinstance(state, ASTStateParallel):
+                for branch in state.branches:
+                    self.visit(branch)
+
+    def task(self, state):
+        pass

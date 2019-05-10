@@ -26,7 +26,7 @@ from .parser import parse
 from .exceptions import CompileError, HeavisideError
 from .utils import create_session, read
 
-def compile(source, region = '', account_id = '', **kwargs):
+def compile(source, region = '', account_id = '', visitors = [], **kwargs):
     """Compile a source step function dsl file into the AWS state machine definition
 
     Args:
@@ -46,7 +46,10 @@ def compile(source, region = '', account_id = '', **kwargs):
                 source_name = "<unknown>"
             tokens = tokenize_source(fh.readline)
 
-        machine = parse(tokens, region, account_id)
+        machine = parse(tokens,
+                        region = region,
+                        account_id = account_id,
+                        visitors = visitors)
         def_ = machine.definition(**kwargs)
         return def_
     except CompileError as e:
@@ -66,6 +69,7 @@ class StateMachine(object):
         """
         self.name = name
         self.arn = None
+        self.visitors = []
         self.session, self.account_id = create_session(**kwargs)
         self.region = self.session.region_name
         self.client = self.session.client('stepfunctions')
@@ -75,6 +79,9 @@ class StateMachine(object):
             if machine['name'] == name:
                 self.arn = machine['stateMachineArn']
                 break
+
+    def add_visitor(self, visitor):
+        self.visitors.append(visitor)
 
     def build(self, source, **kwargs):
         """Build the state machine definition from a source (file)
@@ -91,7 +98,11 @@ class StateMachine(object):
         Raises:
             CompileError: If the was a problem compiling the source
         """
-        return compile(source, self.region, self.account_id, **kwargs)
+        return compile(source,
+                       region = self.region,
+                       account_id = self.account_id,
+                       visitors = self.visitors,
+                       **kwargs)
 
     def _resolve_role(self, role):
         role = role.strip()
