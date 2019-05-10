@@ -325,7 +325,7 @@ class ASTStateTask(ASTState):
             tuple(args_kwargs.kwargs.keys())[0].raise_error('Unexpected keyword argument')
 
         if service.value not in ('Lambda', 'Activity', 'Arn'):
-            required = AWS_SERVICES[service.value][function.lookup]['required_keys']
+            required = AWS_SERVICES[service.value][function.lookup]['required_keys'].copy() # will be mutating
             optional = AWS_SERVICES[service.value][function.lookup]['optional_keys']
 
             for key in args_kwargs.kwargs.keys():
