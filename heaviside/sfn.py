@@ -213,7 +213,9 @@ class Retry(dict):
 def Parameters(ast):
     rst = OrderedDict()
     for k,v in ast.items():
-        rst[k.value] = v # JSON Text is already unwrapped
+        # Keys are ASTValues and need to have the actual value unwrapped
+        # Values are already raw values as they are JSON Text
+        rst[k.value] = v
     return rst
 
 COMPARISON = {

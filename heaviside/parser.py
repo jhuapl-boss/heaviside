@@ -163,8 +163,8 @@ def make_object(n):
 #=============
 # Parser Rules
 #=============
-def json_text():
-    """Returns the parser for Json formatted data"""
+def json_text_():
+    """Returns the parser for JSON Text"""
     # Taken from https://github.com/vlasovskikh/funcparserlib/blob/master/funcparserlib/tests/json.py
     # and modified slightly
     unwrap = lambda x: x.value
@@ -194,6 +194,7 @@ def json_text():
         | (string >> unwrap))
 
     return value
+json_text = json_text_()
 
 def comparison_():
     """Returns the parse for a compound compare statement"""
@@ -225,8 +226,10 @@ def parse(seq, region = '', account_id = '', visitors=[]):
 
     Args:
         seq (list): List of lexer.Token tokens to parse
-        translate (function): Translation function applied to Lambda/Activity names.
-                              Arguments are ("Lambda"|"Activity", arn)
+        region (string): AWS Region where Lambdas and Activities are located
+        account_id (string): AWS Account ID where where Lambdas and Activities are located
+        visitors (list[ast.StateVisitor]): List of StateVisitors that can be used modify
+                                           Task states
 
     Returns
         sfn.StateMachine: StateMachine object
@@ -248,16 +251,17 @@ def parse(seq, region = '', account_id = '', visitors=[]):
                       (n('input') + op_(':') + string >> make(ASTModInput)) |
                       (n('result') + op_(':') + string >> make(ASTModResult)) |
                       (n('output') + op_(':') + string >> make(ASTModOutput)) |
-                      (n('data') + op_(':') + block_s + json_text() + block_e >> make(ASTModData)) |
+                      (n('data') + op_(':') + block_s + json_text + block_e >> make(ASTModData)) |
                       retry_block | catch_block)
 
     state_modifiers = state_modifier + many(state_modifier) >> make(ASTModifiers)
     state_block = maybe(block_s + maybe(string) + maybe(state_modifiers) + block_e)
 
-    # TODO: figure out if there is a better way to structure grammer
+    # DP NOTE: Not the best approach, as it allows: "arg", "arg" key = "value", key = "value"
+    #          where there is no "," between the args and kwargs
     args_kwargs = maybe(string + many(op_(',') + string)) + \
                   skip(maybe(op_(','))) + \
-                  maybe(name + op_('=') + json_text() + many(op_(',') + name + op_('=') + json_text())) >> make(ASTArgsKwargs)
+                  maybe(name + op_('=') + json_text + many(op_(',') + name + op_('=') + json_text)) >> make(ASTArgsKwargs)
 
     pass_ = n('Pass') + op_('(') + op_(')') + state_block >> make(ASTStatePass)
     success = n('Success') + op_('(') + op_(')') + state_block >> make(ASTStateSuccess)

@@ -31,8 +31,10 @@ def compile(source, region = '', account_id = '', visitors = [], **kwargs):
 
     Args:
         source (string|Path|file object): Source of step function dsl, passed to read()
-        translate (None|function): Function that translates a Lambda / Activity name before
-                                   the ARN is completed
+        region (string): AWS Region where Lambdas and Activities are located
+        account_id (string): AWS Account ID where where Lambdas and Activities are located
+        visitors (list[ast.StateVisitor]): List of StateVisitors that can be used modify
+                                           Task states
         kwargs (dict): Arguments to be passed to json.dumps() when creating the definition
 
     Returns:
@@ -81,6 +83,11 @@ class StateMachine(object):
                 break
 
     def add_visitor(self, visitor):
+        """Add a StateVisitor to be used when compiling
+
+        Args:
+            visitor (ast.StateVisitor): a Visitor to use when compiling
+        """
         self.visitors.append(visitor)
 
     def build(self, source, **kwargs):

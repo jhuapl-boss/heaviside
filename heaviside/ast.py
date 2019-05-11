@@ -585,15 +585,12 @@ def check_names(branch):
                     to_process.append(branch.states)
 
 def resolve_arns(branch, region = '', account_id = ''):
-    """AST Transform that looks for all Task states and passed the task type
-    and (partial) ARN to a callback. Used for resolving partial ARNs to full
-    ARNs.
+    """AST Transform that sets the `arn` attribute for ASTStateTasks
 
     Args:
         branch (list): List of ASTState objects
-        translate (callable): Callable that receives task type and ARN
-                              Returned ARN replaces the current value in the
-                              ASTStateTask
+        region (str): AWS Region where the Lambdas / Activities reside
+        account_id (str): AWS Account ID where the Lambdas / Activities reside
     """
     if not hasattr(branch, 'states'):
         branch.raise_error("Trying to resolve arns for non-branch state")
@@ -601,7 +598,7 @@ def resolve_arns(branch, region = '', account_id = ''):
     for state in branch.states:
         if isinstance(state, ASTStateTask):
             if state.service.value == 'Arn':
-                # ARN value already checked in ASTStateTask
+                # ARN value already checked for 'arn:aws:' prefix in ASTStateTask constructor
                 state.arn = state.function.value
             else:
                 lambda_or_state = 'lambda' if state.service.value == 'Lambda' else 'states'
@@ -617,13 +614,29 @@ def resolve_arns(branch, region = '', account_id = ''):
                 resolve_arns(branch, region, account_id)
 
 class StateVisitor(object):
+    """Generic base class for heaviside users to create a visitor that can modify
+    ASTStateTasks
+    """
+
     def dispatch(self, state):
+        """Dispatch the given state to the approprate handler function
+
+        Args:
+            state (ASTState): State to dispatch
+        """
+
         if isinstance(state, ASTStateTask):
-            self.task(state)
+            self.handle_task(state)
         else:
             raise ValueError('State type {} not supported'.format(type(state)))
 
     def visit(self, branch):
+        """Visit all states in all branches of the state machine and dispatch
+        them to be handled the subclass
+
+        Args:
+            branch (list): List of ASTState objects
+        """
         if not hasattr(branch, 'states'):
             raise ValueError("Tryping to visit non-branch state: {}".format(branch))
 
@@ -634,5 +647,10 @@ class StateVisitor(object):
                 for branch in state.branches:
                     self.visit(branch)
 
-    def task(self, state):
+    def handle_task(self, state):
+        """ASTStateTask handler function placeholder
+
+        Args:
+            state (ASTStateTask): State to handle
+        """
         pass

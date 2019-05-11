@@ -135,7 +135,7 @@ class TestCompile(unittest.TestCase):
 
     def test_visitor(self):
         class TestVisitor(heaviside.ast.StateVisitor):
-            def task(self, task):
+            def handle_task(self, task):
                 task.arn = 'modified'
 
         hsd = """Lambda('function')"""
