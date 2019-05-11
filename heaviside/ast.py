@@ -168,6 +168,11 @@ class ASTModifiers(ASTNode): #??? Subclass dict as well?
 
 class ASTArgsKwargs(ASTNode):
     def __init__(self, *tokens):
+        # *tokens is one of the following
+        # (None, None) -> No args, no kwargs
+        # (arg, [arg], None) -> Args, no kwargs
+        # (None, (key, value, [(key, value)])) -> No args, kwargs
+        # (arg, [arg], (key, value, [(key, value)])) -> Args, kwargs
         if tokens == (None, None):
             node = None
         else:
