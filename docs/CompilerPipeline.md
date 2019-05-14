@@ -49,12 +49,11 @@ together adds information about the next state to transition to. It also moves
 the blocks of states for the different Choice State branches into the correct
 location in the AST structure (they exist at the same level as the Choice State).
 
-Another transformation is passing each of the Task ARNs to a callback function
-so that they can be modified (if desired). This often means resolving an
-Activity or Lambda name to a full ARN.
-
-The last transformation is a check on state names. It make sure each name is
-valid and that there are not any duplicate names.
+The other transforms are:
+ * Checking state names to make sure they are not too long
+ * Checking state names to make sure there are no duplicates in a branch
+ * Constructing the full ARN for Task State (uses the AWS region and account ID)
+ * Running any user provided `StateVisitor` based transformations
 
 ## State Machine Generation
 The final step is to convert the AST to the State Machine JSON representation.
