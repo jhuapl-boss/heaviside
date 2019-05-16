@@ -138,7 +138,7 @@ class TestCompile(unittest.TestCase):
             def handle_task(self, task):
                 task.arn = 'modified'
 
-        hsd = """Lambda('function')"""
+        hsd = u"""Lambda('function')"""
         out = heaviside.compile(hsd, visitors=[TestVisitor()])
         out = json.loads(out)
 
