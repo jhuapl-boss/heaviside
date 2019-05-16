@@ -29,7 +29,7 @@
                "BackoffRate": 1.0
             }
          ], 
-         "Resource": "arn:aws:lambda:::lambda:arn", 
+         "Resource": "arn:aws:lambda:::function:FUNCTION_NAME", 
          "TimeoutSeconds": 2, 
          "ResultPath": "$.foo", 
          "HeartbeatSeconds": 1, 
@@ -61,12 +61,12 @@
          "Type": "Succeed"
       }, 
       "Activity": {
-         "Resource": "arn:aws:states:::activity:activity:FUNCTION_NAME", 
+         "Resource": "arn:aws:states:::activity:FUNCTION_NAME", 
          "Type": "Task", 
          "Next": "Raw ARN Task"
       }, 
       "Raw ARN Task": {
-         "Resource": "arn:aws:state:region:account:service:function", 
+         "Resource": "arn:aws:service:region:account:task_type:name", 
          "Type": "Task", 
          "Parameters": {
             "KeyOne": "ValueOne", 
@@ -316,58 +316,58 @@
                      ]
                   }
                ], 
-               "Next": "Line216"
+               "Next": "Line240"
             }, 
             {
                "Variable": "$.foo", 
                "NumericLessThanEquals": 1, 
-               "Next": "Line218"
+               "Next": "Line242"
             }, 
             {
                "Variable": "$.foo", 
                "NumericLessThan": 1, 
-               "Next": "Line220"
+               "Next": "Line244"
             }, 
             {
                "Variable": "$.foo", 
                "NumericGreaterThanEquals": 1, 
-               "Next": "Line222"
+               "Next": "Line246"
             }, 
             {
                "Variable": "$.foo", 
                "NumericGreaterThan": 1, 
-               "Next": "Line224"
+               "Next": "Line248"
             }, 
             {
                "Not": {
                   "Variable": "$.foo", 
                   "NumericEquals": 1
                }, 
-               "Next": "Line226"
+               "Next": "Line250"
             }, 
             {
                "Variable": "$.foo", 
                "StringEquals": "1", 
-               "Next": "Line228"
+               "Next": "Line252"
             }, 
             {
                "Variable": "$.foo", 
                "StringLessThanEquals": "1", 
-               "Next": "Line230"
+               "Next": "Line254"
             }, 
             {
                "Variable": "$.foo", 
                "StringLessThan": "1", 
-               "Next": "Line232"
+               "Next": "Line256"
             }, 
             {
                "Variable": "$.foo", 
                "StringGreaterThanEquals": "1", 
-               "Next": "Line234"
+               "Next": "Line258"
             }, 
             {
                "Variable": "$.foo", 
-               "Next": "Line236", 
+               "Next": "Line260", 
                "StringGreaterThan": "1"
             }, 
             {
@@ -375,101 +375,53 @@
                   "Variable": "$.foo", 
                   "StringEquals": "1"
                }, 
-               "Next": "Line238"
+               "Next": "Line262"
             }, 
             {
                "Variable": "$.foo", 
                "BooleanEquals": true, 
-               "Next": "Line240"
+               "Next": "Line264"
             }, 
             {
                "Not": {
                   "Variable": "$.foo", 
                   "BooleanEquals": true
                }, 
-               "Next": "Line242"
+               "Next": "Line266"
             }, 
             {
                "Variable": "$.foo", 
                "TimestampEquals": "1111-11-11T11:11:11Z", 
-               "Next": "Line244"
+               "Next": "Line268"
             }, 
             {
                "Variable": "$.foo", 
                "TimestampLessThanEquals": "1111-11-11T11:11:11Z", 
-               "Next": "Line246"
+               "Next": "Line270"
             }, 
             {
                "Variable": "$.foo", 
                "TimestampLessThan": "1111-11-11T11:11:11Z", 
-               "Next": "Line248"
+               "Next": "Line272"
             }, 
             {
                "Variable": "$.foo", 
                "TimestampGreaterThanEquals": "1111-11-11T11:11:11Z", 
-               "Next": "Line250"
+               "Next": "Line274"
             }, 
             {
                "Variable": "$.foo", 
                "TimestampGreaterThan": "1111-11-11T11:11:11Z", 
-               "Next": "Line252"
+               "Next": "Line276"
             }, 
             {
                "Not": {
                   "Variable": "$.foo", 
                   "TimestampEquals": "1111-11-11T11:11:11Z"
                }, 
-               "Next": "Line254"
+               "Next": "Line278"
             }
          ]
-      }, 
-      "Line216": {
-         "Type": "Pass", 
-         "Next": "Switch"
-      }, 
-      "Line218": {
-         "Type": "Pass", 
-         "Next": "Switch"
-      }, 
-      "Line220": {
-         "Type": "Pass", 
-         "Next": "Switch"
-      }, 
-      "Line222": {
-         "Type": "Pass", 
-         "Next": "Switch"
-      }, 
-      "Line224": {
-         "Type": "Pass", 
-         "Next": "Switch"
-      }, 
-      "Line226": {
-         "Type": "Pass", 
-         "Next": "Switch"
-      }, 
-      "Line228": {
-         "Type": "Pass", 
-         "Next": "Switch"
-      }, 
-      "Line230": {
-         "Type": "Pass", 
-         "Next": "Switch"
-      }, 
-      "Line232": {
-         "Type": "Pass", 
-         "Next": "Switch"
-      }, 
-      "Line234": {
-         "Type": "Pass", 
-         "Next": "Switch"
-      }, 
-      "Line236": {
-         "Type": "Pass", 
-         "Next": "Switch"
-      }, 
-      "Line238": {
-         "Type": "Pass", 
-         "Next": "Switch"
       }, 
       "Line240": {
          "Type": "Pass", 
@@ -503,41 +455,89 @@
          "Type": "Pass", 
          "Next": "Switch"
       }, 
+      "Line256": {
+         "Type": "Pass", 
+         "Next": "Switch"
+      }, 
+      "Line258": {
+         "Type": "Pass", 
+         "Next": "Switch"
+      }, 
+      "Line260": {
+         "Type": "Pass", 
+         "Next": "Switch"
+      }, 
+      "Line262": {
+         "Type": "Pass", 
+         "Next": "Switch"
+      }, 
+      "Line264": {
+         "Type": "Pass", 
+         "Next": "Switch"
+      }, 
+      "Line266": {
+         "Type": "Pass", 
+         "Next": "Switch"
+      }, 
+      "Line268": {
+         "Type": "Pass", 
+         "Next": "Switch"
+      }, 
+      "Line270": {
+         "Type": "Pass", 
+         "Next": "Switch"
+      }, 
+      "Line272": {
+         "Type": "Pass", 
+         "Next": "Switch"
+      }, 
+      "Line274": {
+         "Type": "Pass", 
+         "Next": "Switch"
+      }, 
+      "Line276": {
+         "Type": "Pass", 
+         "Next": "Switch"
+      }, 
+      "Line278": {
+         "Type": "Pass", 
+         "Next": "Switch"
+      }, 
       "Switch": {
          "OutputPath": "$.foo", 
-         "Default": "Line265", 
+         "Default": "Line289", 
          "Type": "Choice", 
          "Choices": [
             {
                "Variable": "$.a", 
-               "Next": "Line259", 
+               "Next": "Line283", 
                "NumericEquals": 1
             }, 
             {
                "Variable": "$.a", 
                "StringEquals": "foo", 
-               "Next": "Line261"
+               "Next": "Line285"
             }, 
             {
                "Variable": "$.a", 
                "TimestampEquals": "1111-11-11T11:11:11Z", 
-               "Next": "Line263"
+               "Next": "Line287"
             }
          ]
       }, 
-      "Line259": {
+      "Line283": {
          "Type": "Pass", 
          "Next": "Parallel"
       }, 
-      "Line261": {
+      "Line285": {
          "Type": "Pass", 
          "Next": "Parallel"
       }, 
-      "Line263": {
+      "Line287": {
          "Type": "Pass", 
          "Next": "Parallel"
       }, 
-      "Line265": {
+      "Line289": {
          "Type": "Pass", 
          "Next": "Parallel"
       }, 
@@ -581,14 +581,14 @@
                "ErrorEquals": [
                   "States.ALL"
                ], 
-               "Next": "Line290"
+               "Next": "Line314"
             }
          ], 
          "InputPath": "$.foo", 
          "End": true, 
          "Type": "Parallel"
       }, 
-      "Line290": {
+      "Line314": {
          "End": true, 
          "Type": "Pass"
       }

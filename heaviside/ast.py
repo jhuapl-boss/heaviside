@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import copy
 from collections import OrderedDict
 
 from funcparserlib.parser import (some, a, skip)
@@ -126,6 +127,17 @@ class ASTModOutput(ASTModKV):
 class ASTModData(ASTModKV):
     name = 'Data'
 
+class ASTModParameters(OrderedDict, ASTNode):
+    name = 'Parameters'
+
+    def __init__(self, parameters, kv, kvs):
+        OrderedDict.__init__(self)
+        ASTNode.__init__(self, parameters.token)
+
+        self[kv[0]] = kv[1]
+        for kv in kvs:
+            self[kv[0]] = kv[1]
+
 class ASTModRetry(ASTNode):
     name = 'Retry'
 
@@ -165,38 +177,6 @@ class ASTModifiers(ASTNode): #??? Subclass dict as well?
             if key not in self.mods:
                 self.mods[key] = []
             self.mods[key].extend(other.mods[key])
-
-class ASTArgsKwargs(ASTNode):
-    def __init__(self, *tokens):
-        # *tokens is one of the following
-        # (None, None) -> No args, no kwargs
-        # (arg, [arg], None) -> Args, no kwargs
-        # (None, (key, value, [(key, value)])) -> No args, kwargs
-        # (arg, [arg], (key, value, [(key, value)])) -> Args, kwargs
-        if tokens == (None, None):
-            node = None
-        else:
-            node = tokens[0] if tokens[0] is not None else tokens[1][0]
-
-        super(ASTArgsKwargs, self).__init__(node.token if node else None)
-
-        tokens = list(tokens) # Convert from tuple to list so it can be modified
-
-        self.args = []
-        self.kwargs = OrderedDict()
-
-        arg = tokens.pop(0)
-        if arg:
-            self.args.append(arg)
-            for arg in tokens.pop(0):
-                self.args.append(arg)
-
-        kwargs = tokens.pop(0)
-        if kwargs:
-            k, v, kvs = kwargs
-            self.kwargs[k] = v
-            for k, v in kvs:
-                self.kwargs[k] = v
 
 class ASTState(ASTNode):
     state_type = ''
@@ -257,6 +237,7 @@ class ASTState(ASTNode):
         self.result = get(ASTModResult)
         self.output = get(ASTModOutput)
         self.data = get(ASTModData)
+        self.parameters = get(ASTModParameters)
         self.retry = get(ASTModRetry)
         self.catch = get(ASTModCatch)
 
@@ -290,6 +271,7 @@ class ASTStateTask(ASTState):
                        ASTModInput,
                        ASTModResult,
                        ASTModOutput,
+                       ASTModParameters,
                        ASTModRetry,
                        ASTModCatch]
 
@@ -297,7 +279,7 @@ class ASTStateTask(ASTState):
                       'Lambda',
                       'Activity']
 
-    def __init__(self, service, function, args_kwargs, block):
+    def __init__(self, service, function, name, block):
         super(ASTStateTask, self).__init__(service, block)
 
         if service.value not in self.valid_services and \
@@ -306,10 +288,11 @@ class ASTStateTask(ASTState):
 
         if function is None:
             if service.value in ('Lambda', 'Activity', 'Arn'):
-                if len(args_kwargs.args) == 0:
+                if name is None:
                     service.raise_error('{} task requires a function name argument'.format(service.value))
 
-                function = args_kwargs.args.pop(0)
+                function = name
+                name = None
             else:
                 service.raise_error('{} task requires a function to call'.format(service.value))
         else:
@@ -322,29 +305,34 @@ class ASTStateTask(ASTState):
                 except KeyError:
                     function.raise_error('Invalid Task function')
 
+        if name is not None:
+            name.raise_error('Unexpected argument')
+
         if service.value == 'Arn' and not function.value.startswith('arn:aws:'):
             function.raise_error("ARN must start with 'arn:aws:'")
-        if len(args_kwargs.args) > 0:
-            args_kwargs.args[0].raise_error('Unexpected argument')
-        if service.value in ('Lambda', 'Activity') and len(args_kwargs.kwargs) > 0:
-            tuple(args_kwargs.kwargs.keys())[0].raise_error('Unexpected keyword argument')
+        if service.value in ('Lambda', 'Activity') and self.parameters is not None:
+            tuple(self.parameters.keys())[0].raise_error('Unexpected keyword argument')
 
         if service.value not in ('Lambda', 'Activity', 'Arn'):
-            required = AWS_SERVICES[service.value][function.lookup]['required_keys'].copy() # will be mutating
+            required = AWS_SERVICES[service.value][function.lookup]['required_keys']
+            required = copy.copy(required) # will be mutating to determine missing required arguments
             optional = AWS_SERVICES[service.value][function.lookup]['optional_keys']
 
-            for key in args_kwargs.kwargs.keys():
-                if key.value == 'sync':
-                    value = args_kwargs.kwargs[key]
-                    if type(value) != bool:
-                        key.raise_error("Synchronous value must be a boolean")
-                    if value == True:
-                        function.value += '.sync'
-                    del args_kwargs.kwargs[key]
-                elif key.value in required:
-                    required.remove(key.value)
-                elif key.value not in optional:
-                    key.raise_error("Invalid keyword argument")
+            if self.parameters:
+                # self.parameters can be None either if no `parameters:` block is provided
+                # or if there is a syntax error in the `parameters:` block
+                for key in self.parameters.keys():
+                    if key.value == 'sync':
+                        value = self.parameters[key]
+                        if type(value) != bool:
+                            key.raise_error("Synchronous value must be a boolean")
+                        if value == True:
+                            function.value += '.sync'
+                        del self.parameters[key]
+                    elif key.value in required:
+                        required.remove(key.value)
+                    elif key.value not in optional:
+                        key.raise_error("Invalid keyword argument")
 
             if len(required) > 0:
                 missing = ", ".join(required)
@@ -352,11 +340,6 @@ class ASTStateTask(ASTState):
 
         self.service = service
         self.function = function
-
-        if len(args_kwargs.kwargs) > 0:
-            self.parameters = args_kwargs.kwargs
-        else:
-            self.parameters = None
 
 class ASTStateWait(ASTState):
     state_type = 'Wait'
@@ -607,10 +590,11 @@ def resolve_arns(branch, region = '', account_id = ''):
                 state.arn = state.function.value
             else:
                 lambda_or_state = 'lambda' if state.service.value == 'Lambda' else 'states'
+                function_or_state = 'function' if state.service.value == 'Lambda' else state.service.value.lower()
                 parts = ['arn', 'aws',
                          lambda_or_state,
                          region, account_id,
-                         state.service.value.lower(),
+                         function_or_state,
                          state.function.value]
                 state.arn = ":".join(parts)
 

@@ -1,1 +1,3 @@
-Batch.SubmitJob(JobName = 'Name')
+Batch.SubmitJob()
+    parameters:
+        JobName: 'Name'

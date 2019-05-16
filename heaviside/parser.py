@@ -241,6 +241,8 @@ def parse(seq, region = '', account_id = '', visitors=[]):
 
     block = block_s + many(state) + block_e
     comment_block = block_s + maybe(string) + many(state) + block_e
+    parameter_kv = name + op_(':') + json_text
+    parameter_block = n('parameters') + op_(':') + block_s + parameter_kv + many(parameter_kv) + block_e >> make(ASTModParameters)
     retry_block = n('retry') + (array|string) + integer_pos + integer_nn + number >> make(ASTModRetry)
     catch_block = n('catch') + (array|string) + op_(':') + maybe(string) + block >> make(ASTModCatch)
 
@@ -252,23 +254,17 @@ def parse(seq, region = '', account_id = '', visitors=[]):
                       (n('result') + op_(':') + string >> make(ASTModResult)) |
                       (n('output') + op_(':') + string >> make(ASTModOutput)) |
                       (n('data') + op_(':') + block_s + json_text + block_e >> make(ASTModData)) |
-                      retry_block | catch_block)
+                      parameter_block | retry_block | catch_block)
 
     state_modifiers = state_modifier + many(state_modifier) >> make(ASTModifiers)
     state_block = maybe(block_s + maybe(string) + maybe(state_modifiers) + block_e)
-
-    # DP NOTE: Not the best approach, as it allows: "arg", "arg" key = "value", key = "value"
-    #          where there is no "," between the args and kwargs
-    args_kwargs = maybe(string + many(op_(',') + string)) + \
-                  skip(maybe(op_(','))) + \
-                  maybe(name + op_('=') + json_text + many(op_(',') + name + op_('=') + json_text)) >> make(ASTArgsKwargs)
 
     pass_ = n('Pass') + op_('(') + op_(')') + state_block >> make(ASTStatePass)
     success = n('Success') + op_('(') + op_(')') + state_block >> make(ASTStateSuccess)
     fail = n('Fail') + op_('(') + string + op_(',') + string + op_(')') + state_block >> make(ASTStateFail)
     wait_types = n('seconds') | n('seconds_path') | n('timestamp') | n('timestamp_path')
     wait = n('Wait') + op_('(') + wait_types + op_('=') + (integer_pos|timestamp_or_string) + op_(')') + state_block >> make(ASTStateWait)
-    task = name + maybe(op_('.') + name) + op_('(') + args_kwargs + op_(')') + state_block >> make(ASTStateTask)
+    task = name + maybe(op_('.') + name) + op_('(') + maybe(string) + op_(')') + state_block >> make(ASTStateTask)
     simple_state = pass_ | success | fail | wait | task
 
     # Flow Control States

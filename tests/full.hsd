@@ -16,7 +16,7 @@ Pass()
     data:
         {}
 
-Lambda('arn')
+Lambda('FUNCTION_NAME')
     '''Lambda
     Comment'''
     timeout: 2
@@ -31,160 +31,184 @@ Lambda('arn')
     catch ['two']: '$.foo'
         Success()
 
-Activity('activity:FUNCTION_NAME')
+Activity('FUNCTION_NAME')
     """Activity"""
 
-Arn('arn:aws:state:region:account:service:function',
-    KeyOne = 'ValueOne',
-    KeyTwo = 'ValueTwo',
-    sync = True)
+Arn('arn:aws:service:region:account:task_type:name')
     """Raw ARN Task"""
+    parameters:
+        KeyOne: 'ValueOne'
+        KeyTwo: 'ValueTwo'
+        sync: True
 
-Batch.SubmitJob(JobName = 'Name',
-                JobDefinition = '',
-                JobQueue = 'arn',
 
-                # Optional keyword arguments
-                ArrayProperties = {},
-                ContainerOverrides = {},
-                DependsOn = [],
-                Parameters = {},
-                RetryStrategy = {},
-                Timeout = {},
-                sync = False)
-                """Batch.SubmitJob"""
+Batch.SubmitJob()
+    """Batch.SubmitJob"""
+    parameters:
+        JobName: 'Name'
+        JobDefinition: ''
+        JobQueue: 'arn'
 
-DynamoDB.GetItem(TableName = 'Table',
-                 Key = {},
+        # Optional keyword arguments
+        ArrayProperties: {}
+        ContainerOverrides: {}
+        DependsOn: []
+        Parameters: {}
+        RetryStrategy: {}
+        Timeout: {}
+        sync: False
 
-                 # Optional keyword arguments
-                 AttributesToGet = [],
-                 ConsistentRead = True,
-                 ExpressionAttributeNames = {},
-                 ProjectionExpression = '',
-                 ReturnConsumedCapacity = '')
-                 """DynamoDB.GetItem"""
+DynamoDB.GetItem()
+    """DynamoDB.GetItem"""
+    parameters:
+        TableName: 'Table'
+        Key: {}
 
-DynamoDB.PutItem(TableName = 'Table',
-                 Item = {},
+        # Optional keyword arguments
+        AttributesToGet: []
+        ConsistentRead: True
+        ExpressionAttributeNames: {}
+        ProjectionExpression: ''
+        ReturnConsumedCapacity: ''
 
-                 # Optional keyword arguments
-                 ConditionalOperator = '',
-                 ConditionExpression = '',
-                 Expected = {},
-                 ExpressionAttributeNames = {},
-                 ExpressionAttributeValues = {},
-                 ReturnConsumedCapacity = '',
-                 ReturnItemCollectionMetrics = '',
-                 ReturnValues = '')
-                 """DynamoDB.PutItem"""
+DynamoDB.PutItem()
+    """DynamoDB.PutItem"""
+    parameters:
+        TableName: 'Table'
+        Item: {}
 
-DynamoDB.DeleteItem(TableName = 'Table',
-                    Key = {},
+        # Optional keyword arguments
+        ConditionalOperator: ''
+        ConditionExpression: ''
+        Expected: {}
+        ExpressionAttributeNames: {}
+        ExpressionAttributeValues: {}
+        ReturnConsumedCapacity: ''
+        ReturnItemCollectionMetrics: ''
+        ReturnValues: ''
 
-                    # Optional keyword arguments
-                    ConditionalOperator = '',
-                    ConditionExpression = '',
-                    Expected = {},
-                    ExpressionAttributeNames = {},
-                    ExpressionAttributeValues = {},
-                    ReturnConsumedCapacity = '',
-                    ReturnItemCollectionMetrics = '',
-                    ReturnValues = '')
-                    """DynamoDB.DeleteItem"""
+DynamoDB.DeleteItem()
+    """DynamoDB.DeleteItem"""
+    parameters:
+        TableName: 'Table'
+        Key: {}
 
-DynamoDB.UpdateItem(TableName = 'Table',
-                    Key = {},
+        # Optional keyword arguments
+        ConditionalOperator: ''
+        ConditionExpression: ''
+        Expected: {}
+        ExpressionAttributeNames: {}
+        ExpressionAttributeValues: {}
+        ReturnConsumedCapacity: ''
+        ReturnItemCollectionMetrics: ''
+        ReturnValues: ''
 
-                    # Optional keyword arguments
-                    AttributeUpdates = {},
-                    ConditionalOperator = '',
-                    ConditionExpression = '',
-                    Expected = {},
-                    ExpressionAttributeNames = {},
-                    ExpressionAttributeValues = {},
-                    ReturnConsumedCapacity = '',
-                    ReturnItemCollectionMetrics = '',
-                    ReturnValues = '',
-                    UpdateExpression = '')
-                    """DynamoDB.UpdateItem"""
+DynamoDB.UpdateItem()
+    """DynamoDB.UpdateItem"""
+    parameters:
+        TableName: 'Table'
+        Key: {}
 
-ECS.RunTask(TaskDefinition = '',
+        # Optional keyword arguments
+        AttributeUpdates: {}
+        ConditionalOperator: ''
+        ConditionExpression: ''
+        Expected: {}
+        ExpressionAttributeNames: {}
+        ExpressionAttributeValues: {}
+        ReturnConsumedCapacity: ''
+        ReturnItemCollectionMetrics: ''
+        ReturnValues: ''
+        UpdateExpression: ''
 
-            # Optional keyword arguments
-            Cluster = '',
-            Group = '',
-            LaunchType = '',
-            NetworkConfiguration = {},
-            Overrides = {},
-            PlacementConstraints = {},
-            PlacementStrategy = {},
-            PlatformVersion = '',
-            sync = True)
-            """ECS.RunTask"""
+ECS.RunTask()
+    """ECS.RunTask"""
+    parameters:
+        TaskDefinition: ''
 
-SNS.Publish(Message = '',
+        # Optional keyword arguments
+        Cluster: ''
+        Group: ''
+        LaunchType: ''
+        NetworkConfiguration: {}
+        Overrides: {}
+        PlacementConstraints: {}
+        PlacementStrategy: {}
+        PlatformVersion: ''
+        sync: True
 
-            # Optional keyword arguments
-            MessageAttributes = {},
-            MessageStructure = '',
-            PhoneNumber = '',
-            Subject = '',
-            TargetArn = '',
-            TopicArn = '')
-            """SNS.Publish"""
+SNS.Publish()
+    """SNS.Publish"""
+    parameters:
+        Message: ''
 
-SQS.SendMessage(QueueUrl = '',
-                MessageBody = '',
+        # Optional keyword arguments
+        MessageAttributes: {}
+        MessageStructure: ''
+        PhoneNumber: ''
+        Subject: ''
+        TargetArn: ''
+        TopicArn: ''
 
-                # Optional keyword arguments
-                DelaySeconds = 0,
-                MessageAttributes = {},
-                MessageDeduplicationId = '',
-                MessageGroupId = '')
-                """SQS.SendMessage"""
+SQS.SendMessage()
+    """SQS.SendMessage"""
+    parameters:
+        QueueUrl: ''
+        MessageBody: ''
 
-Glue.StartJobRun(JobName = '',
+        # Optional keyword arguments
+        DelaySeconds: 0
+        MessageAttributes: {}
+        MessageDeduplicationId: ''
+        MessageGroupId: ''
 
-                 # Optional keyword arguments
-                 JobRunId = '',
-                 Arguments = {},
-                 AllocatedCapacity = 0,
-                 Timeout = 1,
-                 SecurityConfiguration = '',
-                 NotificationProperty = {},
-                 sync = True)
-                 """Glue.StartJobRun"""
+Glue.StartJobRun()
+    """Glue.StartJobRun"""
+    parameters:
+        JobName: ''
 
-SageMaker.CreateTrainingJob(TrainingJobName = '',
-                            AlgorithmSpecification = {},
-                            OutputDataConfig = {},
-                            ResourceConfig = {},
-                            RoleArn = '',
-                            StoppingCondition = {},
+        # Optional keyword arguments
+        JobRunId: ''
+        Arguments: {}
+        AllocatedCapacity: 0
+        Timeout: 1
+        SecurityConfiguration: ''
+        NotificationProperty: {}
+        sync: True
 
-                            # Optional keyword arguments
-                            HyperParameters = {},
-                            InputDataConfig = [],
-                            Tags = [],
-                            VpcConfig = {},
-                            sync = True)
-                            """SageMaker.CreateTrainingJob"""
+SageMaker.CreateTrainingJob()
+    """SageMaker.CreateTrainingJob"""
+    parameters:
+        TrainingJobName: ''
+        AlgorithmSpecification: {}
+        OutputDataConfig: {}
+        ResourceConfig: {}
+        RoleArn: ''
+        StoppingCondition: {}
 
-SageMaker.CreateTransformJob(TransformJobName = '',
-                             ModelName = '',
-                             TransformInput = {},
-                             TransformOutput = {},
-                             TransformResources = {},
+        # Optional keyword arguments
+        HyperParameters: {}
+        InputDataConfig: []
+        Tags: []
+        VpcConfig: {}
+        sync: True
 
-                             # Optional keyword arguments
-                             BatchStrategy = '',
-                             Environment = {},
-                             MaxConcurrentTransforms = 0,
-                             MaxPayloadInMB = 0,
-                             Tags = [],
-                             sync = True)
-                             """SageMaker.CreateTransformJob"""
+SageMaker.CreateTransformJob()
+    """SageMaker.CreateTransformJob"""
+    parameters:
+        TransformJobName: ''
+        ModelName: ''
+        TransformInput: {}
+        TransformOutput: {}
+        TransformResources: {}
+
+        # Optional keyword arguments
+        BatchStrategy: ''
+        Environment: {}
+        MaxConcurrentTransforms: 0
+        MaxPayloadInMB: 0
+        Tags: []
+        sync: True
 
 
 Wait(seconds=1)

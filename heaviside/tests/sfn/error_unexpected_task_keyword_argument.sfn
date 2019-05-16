@@ -1,1 +1,3 @@
-Lambda('function', Unexpected='Keyword Argument')
+Lambda('function')
+    parameters:
+        Unexpected: 'Keyword Argument'
