@@ -589,12 +589,21 @@ def resolve_arns(branch, region = '', account_id = ''):
                 # ARN value already checked for 'arn:aws:' prefix in ASTStateTask constructor
                 state.arn = state.function.value
             else:
-                lambda_or_state = 'lambda' if state.service.value == 'Lambda' else 'states'
-                function_or_state = 'function' if state.service.value == 'Lambda' else state.service.value.lower()
+                # arn:partition:service:region:account:task_type:name
+                if state.service.value == 'Lambda':
+                    service = 'lambda'
+                    task_type = 'function'
+                else:
+                    service = 'states'
+                    task_type = state.service.value.lower()
+                if state.service.value not in ('Lambda', 'Activity'):
+                    region = ''
+                    account_id = ''
                 parts = ['arn', 'aws',
-                         lambda_or_state,
-                         region, account_id,
-                         function_or_state,
+                         service,
+                         region,
+                         account_id,
+                         task_type,
                          state.function.value]
                 state.arn = ":".join(parts)
 
