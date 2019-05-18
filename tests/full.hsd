@@ -58,7 +58,7 @@ transform:
     input: '$.foo'
     output: '$.foo'
 
-if '$.foo' == 1 or ('$.foo' >= 10 and '$.foo' < 20):
+if '$.foo' == 1 or ('$.foo' >= 10 and (not '$.foo' < 20)):
     """If-Elif-Else"""
     Pass()
 elif '$.foo' <= 1:
@@ -99,6 +99,11 @@ elif '$.foo' > '1111-11-11T11:11:11Z':
     Pass()
 elif '$.foo' != '1111-11-11T11:11:11Z':
     Pass()
+else:
+    Pass()
+transform:
+    input: '$.foo'
+    output: '$.foo'
 
 switch '$.a':
     """Switch"""
@@ -108,9 +113,12 @@ switch '$.a':
         Pass()
     case '1111-11-11T11:11:11Z':
         Pass()
+    case false:
+        Pass()
     default:
         Pass()
 transform:
+    input: '$.foo'
     output: '$.foo'
 
 parallel:
@@ -128,7 +136,9 @@ parallel:
 
 transform:
     input: '$.foo'
+    result: '$.foo'
+    output: '$.foo'
 error:
     retry [] 1 0 1.0
     catch []:
-        Pass()
+        goto 'Switch'

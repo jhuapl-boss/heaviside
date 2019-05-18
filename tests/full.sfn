@@ -110,7 +110,9 @@
          "Next": "While"
       }, 
       "If-Elif-Else": {
-         "Default": "Switch", 
+         "InputPath": "$.foo", 
+         "OutputPath": "$.foo", 
+         "Default": "Line103", 
          "Type": "Choice", 
          "Choices": [
             {
@@ -126,8 +128,10 @@
                            "NumericGreaterThanEquals": 10
                         }, 
                         {
-                           "Variable": "$.foo", 
-                           "NumericLessThan": 20
+                           "Not": {
+                              "Variable": "$.foo", 
+                              "NumericLessThan": 20
+                           }
                         }
                      ]
                   }
@@ -319,41 +323,55 @@
          "Type": "Pass", 
          "Next": "Switch"
       }, 
+      "Line103": {
+         "Type": "Pass", 
+         "Next": "Switch"
+      }, 
       "Switch": {
+         "InputPath": "$.foo", 
          "OutputPath": "$.foo", 
-         "Default": "Line112", 
+         "Default": "Line119", 
          "Type": "Choice", 
          "Choices": [
             {
                "Variable": "$.a", 
-               "Next": "Line106", 
+               "Next": "Line111", 
                "NumericEquals": 1
             }, 
             {
                "Variable": "$.a", 
                "StringEquals": "foo", 
-               "Next": "Line108"
+               "Next": "Line113"
             }, 
             {
                "Variable": "$.a", 
                "TimestampEquals": "1111-11-11T11:11:11Z", 
-               "Next": "Line110"
+               "Next": "Line115"
+            }, 
+            {
+               "Variable": "$.a", 
+               "BooleanEquals": false, 
+               "Next": "Line117"
             }
          ]
       }, 
-      "Line106": {
+      "Line111": {
          "Type": "Pass", 
          "Next": "Parallel"
       }, 
-      "Line108": {
+      "Line113": {
          "Type": "Pass", 
          "Next": "Parallel"
       }, 
-      "Line110": {
+      "Line115": {
          "Type": "Pass", 
          "Next": "Parallel"
       }, 
-      "Line112": {
+      "Line117": {
+         "Type": "Pass", 
+         "Next": "Parallel"
+      }, 
+      "Line119": {
          "Type": "Pass", 
          "Next": "Parallel"
       }, 
@@ -392,21 +410,23 @@
                "StartAt": "Fail"
             }
          ], 
+         "ResultPath": "$.foo", 
+         "OutputPath": "$.foo", 
          "Catch": [
             {
                "ErrorEquals": [
                   "States.ALL"
                ], 
-               "Next": "Line134"
+               "Next": "Line144"
             }
          ], 
          "InputPath": "$.foo", 
          "End": true, 
          "Type": "Parallel"
       }, 
-      "Line134": {
-         "End": true, 
-         "Type": "Pass"
+      "Line144": {
+         "Type": "Pass", 
+         "Next": "Switch"
       }
    }, 
    "Comment": "State machine comment", 

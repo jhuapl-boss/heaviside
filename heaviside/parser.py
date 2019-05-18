@@ -242,6 +242,9 @@ def parse(seq, translate=lambda x, y: y):
 
 
     # Simple States
+    # DP Note: The 'next' modifier is not allowed in general usage, must use the 'Goto'
+    #          state to create that modifier. If 'next' should be allowed from any state
+    #          just add it to 'state_modifier' and 'transform_modifier'
     state_modifier = ((n('timeout') + op_(':') + integer_pos >> make(ASTModTimeout)) |
                       (n('heartbeat') + op_(':') + integer_pos >> make(ASTModHeartbeat)) |
                       (n('input') + op_(':') + string >> make(ASTModInput)) |
@@ -285,7 +288,9 @@ def parse(seq, translate=lambda x, y: y):
                 many(n('parallel') + op_(':') + block) +
                 transform_block + error_block) >> make(ASTStateParallel)
 
-    state.define(simple_state | choice_state | parallel)
+    goto = n('goto') + string >> make(ASTStateGoto)
+
+    state.define(simple_state | choice_state | parallel | goto)
 
     # State Machine
     version = maybe(n('version') + op_(':') + string >> make(ASTModVersion))
@@ -298,6 +303,7 @@ def parse(seq, translate=lambda x, y: y):
         link_branch(tree)
         check_names(tree)
         resolve_arns(tree, translate)
+        verify_goto_targets(tree)
         function = StepFunction(tree)
         #import code
         #code.interact(local=locals())

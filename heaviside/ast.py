@@ -94,6 +94,12 @@ class ASTModKV(ASTValue):
     def __init__(self, key, value):
         super(ASTModKV, self).__init__(value, key.token)
 
+    def __repr__(self):
+        return "<ASTModKV {}:{}>".format(self.name, self.value)
+
+class ASTModNext(ASTModKV):
+    name = 'Next'
+
 class ASTModTimeout(ASTModKV):
     name = 'Timeout'
 
@@ -152,6 +158,9 @@ class ASTModifiers(ASTNode): #??? Subclass dict as well?
                 self.mods[key] = []
             self.mods[key].extend(other.mods[key])
 
+    def __repr__(self):
+        return "\n".join(repr(mod) for mod in self.mods.values())
+
 class ASTState(ASTNode):
     state_type = ''
     valid_modifiers = []
@@ -205,6 +214,7 @@ class ASTState(ASTNode):
 
             return vals
 
+        self.next = get(ASTModNext)
         self.timeout = get(ASTModTimeout)
         self.heartbeat = get(ASTModHeartbeat)
         self.input = get(ASTModInput)
@@ -224,6 +234,21 @@ class ASTState(ASTNode):
 class ASTStatePass(ASTState):
     state_type = 'Pass'
     valid_modifiers = [ASTModInput, ASTModResult, ASTModOutput, ASTModData]
+
+class ASTStateGoto(ASTStatePass):
+    """Custom version of Pass that exposes / sets the 'next' modifier"""
+    valid_modifiers = [ASTModNext]
+
+    def __init__(self, state, label):
+        # Create the state_modifer block manually
+        block = (None,
+                 ASTModifiers(
+                    ASTModNext(label, label.value),
+                    []
+                 )
+                )
+
+        super(ASTStateGoto, self).__init__(state, block)
 
 class ASTStateSuccess(ASTState):
     state_type = 'Succeed'
@@ -459,16 +484,22 @@ def check_names(branch):
     Checks performed:
         * Name is not greater than 128 characters
         * No duplicate state names
+
+    Args:
+        branch (list): List of ASTState objects
+
+    Raises:
+        CompileError : If any of the checks fail
     """
     if not hasattr(branch, 'states'):
         branch.raise_error("Trying to check names for non-branch state")
 
     to_process = [branch.states]
-    names = set()
 
     while len(to_process) > 0:
         states = to_process.pop(0)
 
+        names = set() # State names are unique to the branch
         for state in states:
             if len(state.name) > MAX_NAME_LENGTH:
                 state.raise_error("Name exceedes {} characters".format(MAX_NAME_LENGTH))
@@ -492,6 +523,9 @@ def resolve_arns(branch, translate = lambda x, y: y):
         translate (callable): Callable that receives task type and ARN
                               Returned ARN replaces the current value in the
                               ASTStateTask
+
+    Raises:
+        CompileError : If the translate function raises an exception
     """
     if not hasattr(branch, 'states'):
         branch.raise_error("Trying to resolve arns for non-branch state")
@@ -507,3 +541,36 @@ def resolve_arns(branch, translate = lambda x, y: y):
             for branch in state.branches:
                 resolve_arns(branch, translate)
 
+def verify_goto_targets(branch):
+    """Recursivly checks that all Goto states target valid state names
+
+    Valid state names are those states in the current branch. This means that
+    a Goto cannot target states in another parallel branch or from a parallel
+    branch to the main body of the Step Function
+
+    Args:
+        branch (list): List of ASTState objects
+
+    Raises:
+        CompileError : If a Goto state targets an invalid state
+    """
+    if not hasattr(branch, 'states'):
+        branch.raise_error("Trying to check goto targets for non-branch state")
+
+    to_process = [branch.states]
+
+    while len(to_process) > 0:
+        states = to_process.pop(0)
+
+        names = set() # Need to know all of the valid state names for the branch
+        for state in states:
+            names.add(state.name)
+
+            if isinstance(state, ASTStateParallel):
+                for branch in state.branches:
+                    to_process.append(branch.states)
+
+        for state in states:
+            if isinstance(state.next, ASTModNext):
+                if state.next.value not in names:
+                    state.next.raise_error("Goto target '{}' doesn't exist".format(state.next.value))
