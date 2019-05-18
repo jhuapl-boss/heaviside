@@ -100,6 +100,9 @@ class TestCompile(unittest.TestCase):
     def test_duplicate_state_name(self):
         self.execute('error_duplicate_state_name.sfn', "Duplicate state name 'Test'")
 
+    def test_invalid_goto_target(self):
+        self.execute('error_invalid_goto_target.sfn', "Goto target 'Target' doesn't exist")
+
     def test_invalid_task_service(self):
         self.execute('error_invalid_task_service.sfn', "Invalid Task service")
 

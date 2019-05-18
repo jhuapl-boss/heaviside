@@ -65,7 +65,7 @@ class TestRead(unittest.TestCase):
             self.assertEqual(data, fh.read())
 
     def test_unsuported(self):
-        with self.assertRaises(Exception):
+        with self.assertRaises(ValueError):
             with utils.read(None) as fh:
                 pass
 

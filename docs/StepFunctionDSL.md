@@ -45,6 +45,7 @@ libraries page.
     - [Switch](#Switch)
     - [While Loop](#While-Loop)
     - [Parallel](#Parallel)
+    - [Goto](#Goto)
 
 ## Why
 When Amazon released AWS Step Functions they provided a [language definition]
@@ -355,6 +356,16 @@ Modifiers:
             next state (Default: `"$"`)
 
 The `error` block contains the same `retry` and `catch` modifiers as the task state.
+
+#### Goto
+The `goto` control statement allows jumping to another state. This can be used
+to create common error handling routines (among other uses).
+
+The state can only target states within the current branch of execution.  This
+means either the main body of the Step Function or within a branch of a Parallel
+state.
+
+    goto "State Name"
 
 [stepfunctions library]: https://github.com/jhuapl-boss/heaviside
 [language definition]: https://states-language.net/spec.html

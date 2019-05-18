@@ -19,7 +19,7 @@ from collections import OrderedDict
 
 import iso8601 # parser for timestamp format
 
-from .ast import ASTStateChoice, ASTCompOp, ASTCompNot, ASTCompAndOr, ASTValue
+from .ast import ASTStateChoice, ASTCompOp, ASTCompNot, ASTCompAndOr, ASTValue, ASTModNext
 
 class Timestamp(object):
     """Wrapper around a timestamp string.
@@ -163,7 +163,10 @@ class State(dict):
                 self['Branches'].append(Branch(branch))
 
         if ast.next is not None:
-            self['Next'] = ast.next
+            if isinstance(ast.next, ASTModNext):
+                self['Next'] = ast.next.value
+            else:
+                self['Next'] = ast.next
 
         if ast.end:
             self['End'] = ast.end
