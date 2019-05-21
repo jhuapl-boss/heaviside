@@ -203,7 +203,7 @@ data to the worker(s) for processing.
         output: JsonPath
         parameters:
             Key1: {"JSON": "Text"}
-            Key2: "$.json_path.to.input.data"
+            Key2.$: "$.json_path.to.input.data"
         retry error(s) retry interval (seconds), max attempts, backoff rate
         catch error(s): JsonPath
             State(s)
@@ -240,6 +240,7 @@ Modifiers:
 * `parameters`: Keyword arguments to be passed in the API call. The value is a
                 JSON text, which may be a JsonPath referencing data from the
                 state's input data object.
+                NOTE: If the value contains a JsonPath the key must end wit `.$`
 * `retry`: If the given error(s) were encountered, rerun the state
   - `error(s)`: A single string, array of strings, or empty array of errors to match
               against. An empty array matches against all errors.

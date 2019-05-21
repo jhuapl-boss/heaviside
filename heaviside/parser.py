@@ -78,6 +78,18 @@ def n_(name):
     """Skip the name with the given value"""
     return skip(n(name))
 
+def e(name):
+    """Get an ASTValue with the given error value
+
+    An ERRORTOKEN is any unrecognized input (invalid Python value)
+    or an unterminated single quote
+    """
+    return a(Token('ERRORTOKEN', name)) >> tok_to_value
+
+def e_(name):
+    """Skip the error with the given value"""
+    return skip(e(name))
+
 name = toktype('NAME')
 
 # Define true and false in terms of Python boolean values
@@ -241,7 +253,7 @@ def parse(seq, region = '', account_id = '', visitors=[]):
 
     block = block_s + many(state) + block_e
     comment_block = block_s + maybe(string) + many(state) + block_e
-    parameter_kv = name + op_(':') + json_text
+    parameter_kv = name + maybe(op_('.') + e('$')) + op_(':') + json_text
     parameter_block = n('parameters') + op_(':') + block_s + parameter_kv + many(parameter_kv) + block_e >> make(ASTModParameters)
     retry_block = n('retry') + (array|string) + integer_pos + integer_nn + number >> make(ASTModRetry)
     catch_block = n('catch') + (array|string) + op_(':') + maybe(string) + block >> make(ASTModCatch)
@@ -317,8 +329,8 @@ def parse(seq, region = '', account_id = '', visitors=[]):
         #code.interact(local=locals())
 
         return function
-    except NoParseError as e:
-        max = e.state.max
+    except NoParseError as ex:
+        max = ex.state.max
         tok = seq[max] if len(seq) > max else Token('EOF', '<EOF>')
 
         if tok.code == 'ERRORTOKEN':

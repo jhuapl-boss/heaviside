@@ -136,13 +136,21 @@ class ASTModData(ASTModKV):
 class ASTModParameters(OrderedDict, ASTNode):
     name = 'Parameters'
 
-    def __init__(self, parameters, kv, kvs):
+    def __init__(self, parameters, kpv, kpvs):
         OrderedDict.__init__(self)
         ASTNode.__init__(self, parameters.token)
 
-        self[kv[0]] = kv[1]
-        for kv in kvs:
-            self[kv[0]] = kv[1]
+        self.add_parameter(kpv)
+        for kpv in kpvs:
+            self.add_parameter(kpv)
+
+    def add_parameter(self, kpv):
+        k,p,v = kpv
+        if p is not None:
+            k.value += '.$' # Parameters that use a JsonPath must have the key
+                            # end with `.$`
+
+        self[k] = v
 
 class ASTModRetry(ASTNode):
     name = 'Retry'
@@ -347,16 +355,20 @@ class ASTStateTask(ASTState):
                 # self.parameters can be None either if no `parameters:` block is provided
                 # or if there is a syntax error in the `parameters:` block
                 for key in self.parameters.keys():
-                    if key.value == 'sync':
+                    k = key.value
+                    if k.endswith('.$'):
+                        k = k[:-2] # remove the `.$`, which donates that the key uses a JsonPath
+
+                    if k == 'sync':
                         value = self.parameters[key]
                         if type(value) != bool:
                             key.raise_error("Synchronous value must be a boolean")
                         if value == True:
                             function.value += '.sync'
                         del self.parameters[key]
-                    elif key.value in required:
-                        required.remove(key.value)
-                    elif key.value not in optional:
+                    elif k in required:
+                        required.remove(k)
+                    elif k not in optional:
                         key.raise_error("Invalid keyword argument")
 
             if len(required) > 0:
