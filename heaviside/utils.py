@@ -109,10 +109,11 @@ def write(obj):
     """
     fh = None
     is_open = False
-    if isstr(obj) and obj == '-':
-        fh = sys.stdout
-    else:
-        obj = Path(obj)
+    if isstr(obj):
+        if obj == '-':
+            fh = sys.stdout
+        else:
+            obj = Path(obj)
 
     if fh is None:
         if isinstance(obj, Path):
