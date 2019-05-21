@@ -182,12 +182,10 @@ coded.
 AWS maintained APIs are in the format `_Type_._Function_()` and use the
 `parameters` block to pass argument.
 
-User maintained works are either `Lambda()` or `Activity()`, with the difference
-being where the code that will be executed is living. For `Lambda()` the code
+User maintained workers are either `Lambda()` or `Activity()`, with the difference
+being where the code that will be executed is located. For `Lambda()` the code
 is an AWS Lambda function. For `Activity()` the code can be running anywhere,
 and is responsible for polling AWS to see if there is new work for it to perform.
-
-??? Do Lambda and Activity make use of the new parameters block?
 
 Activity ARNs are created in the Step Functions section of AWS (console or API).
 Once defined multiple workers can start polling for work and state machines can send
@@ -233,7 +231,7 @@ Arguments:
           compile time using the given AWS region and account information.
 * `arn`: The full ARN of an Activity, Lambda, or other AWS API to be executed.
          This allows calling Activities hosted in different regions / accounts
-         or calling new AWS APIs because this library is updated to handle them.
+         or calling new AWS APIs before this library is updated to handle them.
 
 Modifiers:
 * `timeout`: Number of seconds before the task times out (Default: 60 seconds)
@@ -241,7 +239,7 @@ Modifiers:
               received from the task. Needs to be less than the `timeout` value.
 * `parameters`: Keyword arguments to be passed in the API call. The value is a
                 JSON text, which may be a JsonPath referencing data from the
-                state's input data.
+                state's input data object.
 * `retry`: If the given error(s) were encountered, rerun the state
   - `error(s)`: A single string, array of strings, or empty array of errors to match
               against. An empty array matches against all errors.
