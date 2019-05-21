@@ -70,8 +70,7 @@
          "Type": "Task", 
          "Parameters": {
             "KeyOne": "ValueOne", 
-            "KeyTwo": "ValueTwo", 
-            "sync": true
+            "KeyTwo": "ValueTwo"
          }, 
          "Next": "Batch.SubmitJob"
       }, 
@@ -296,7 +295,7 @@
       "If-Elif-Else": {
          "InputPath": "$.foo", 
          "OutputPath": "$.foo", 
-         "Default": "Line280", 
+         "Default": "Line273", 
          "Type": "Choice", 
          "Choices": [
             {
@@ -320,58 +319,58 @@
                      ]
                   }
                ], 
-               "Next": "Line240"
+               "Next": "Line233"
             }, 
             {
                "Variable": "$.foo", 
                "NumericLessThanEquals": 1, 
-               "Next": "Line242"
+               "Next": "Line235"
             }, 
             {
                "Variable": "$.foo", 
                "NumericLessThan": 1, 
-               "Next": "Line244"
+               "Next": "Line237"
             }, 
             {
                "Variable": "$.foo", 
                "NumericGreaterThanEquals": 1, 
-               "Next": "Line246"
+               "Next": "Line239"
             }, 
             {
                "Variable": "$.foo", 
                "NumericGreaterThan": 1, 
-               "Next": "Line248"
+               "Next": "Line241"
             }, 
             {
                "Not": {
                   "Variable": "$.foo", 
                   "NumericEquals": 1
                }, 
-               "Next": "Line250"
+               "Next": "Line243"
             }, 
             {
                "Variable": "$.foo", 
                "StringEquals": "1", 
-               "Next": "Line252"
+               "Next": "Line245"
             }, 
             {
                "Variable": "$.foo", 
                "StringLessThanEquals": "1", 
-               "Next": "Line254"
+               "Next": "Line247"
             }, 
             {
                "Variable": "$.foo", 
                "StringLessThan": "1", 
-               "Next": "Line256"
+               "Next": "Line249"
             }, 
             {
                "Variable": "$.foo", 
                "StringGreaterThanEquals": "1", 
-               "Next": "Line258"
+               "Next": "Line251"
             }, 
             {
                "Variable": "$.foo", 
-               "Next": "Line260", 
+               "Next": "Line253", 
                "StringGreaterThan": "1"
             }, 
             {
@@ -379,183 +378,183 @@
                   "Variable": "$.foo", 
                   "StringEquals": "1"
                }, 
-               "Next": "Line262"
+               "Next": "Line255"
             }, 
             {
                "Variable": "$.foo", 
                "BooleanEquals": true, 
-               "Next": "Line264"
+               "Next": "Line257"
             }, 
             {
                "Not": {
                   "Variable": "$.foo", 
                   "BooleanEquals": true
                }, 
-               "Next": "Line266"
+               "Next": "Line259"
             }, 
             {
                "Variable": "$.foo", 
                "TimestampEquals": "1111-11-11T11:11:11Z", 
-               "Next": "Line268"
+               "Next": "Line261"
             }, 
             {
                "Variable": "$.foo", 
                "TimestampLessThanEquals": "1111-11-11T11:11:11Z", 
-               "Next": "Line270"
+               "Next": "Line263"
             }, 
             {
                "Variable": "$.foo", 
                "TimestampLessThan": "1111-11-11T11:11:11Z", 
-               "Next": "Line272"
+               "Next": "Line265"
             }, 
             {
                "Variable": "$.foo", 
                "TimestampGreaterThanEquals": "1111-11-11T11:11:11Z", 
-               "Next": "Line274"
+               "Next": "Line267"
             }, 
             {
                "Variable": "$.foo", 
                "TimestampGreaterThan": "1111-11-11T11:11:11Z", 
-               "Next": "Line276"
+               "Next": "Line269"
             }, 
             {
                "Not": {
                   "Variable": "$.foo", 
                   "TimestampEquals": "1111-11-11T11:11:11Z"
                }, 
-               "Next": "Line278"
+               "Next": "Line271"
             }
          ]
       }, 
-      "Line240": {
+      "Line233": {
          "Type": "Pass", 
          "Next": "Switch"
       }, 
-      "Line242": {
+      "Line235": {
          "Type": "Pass", 
          "Next": "Switch"
       }, 
-      "Line244": {
+      "Line237": {
          "Type": "Pass", 
          "Next": "Switch"
       }, 
-      "Line246": {
+      "Line239": {
          "Type": "Pass", 
          "Next": "Switch"
       }, 
-      "Line248": {
+      "Line241": {
          "Type": "Pass", 
          "Next": "Switch"
       }, 
-      "Line250": {
+      "Line243": {
          "Type": "Pass", 
          "Next": "Switch"
       }, 
-      "Line252": {
+      "Line245": {
          "Type": "Pass", 
          "Next": "Switch"
       }, 
-      "Line254": {
+      "Line247": {
          "Type": "Pass", 
          "Next": "Switch"
       }, 
-      "Line256": {
+      "Line249": {
          "Type": "Pass", 
          "Next": "Switch"
       }, 
-      "Line258": {
+      "Line251": {
          "Type": "Pass", 
          "Next": "Switch"
       }, 
-      "Line260": {
+      "Line253": {
          "Type": "Pass", 
          "Next": "Switch"
       }, 
-      "Line262": {
+      "Line255": {
          "Type": "Pass", 
          "Next": "Switch"
       }, 
-      "Line264": {
+      "Line257": {
          "Type": "Pass", 
          "Next": "Switch"
       }, 
-      "Line266": {
+      "Line259": {
          "Type": "Pass", 
          "Next": "Switch"
       }, 
-      "Line268": {
+      "Line261": {
          "Type": "Pass", 
          "Next": "Switch"
       }, 
-      "Line270": {
+      "Line263": {
          "Type": "Pass", 
          "Next": "Switch"
       }, 
-      "Line272": {
+      "Line265": {
          "Type": "Pass", 
          "Next": "Switch"
       }, 
-      "Line274": {
+      "Line267": {
          "Type": "Pass", 
          "Next": "Switch"
       }, 
-      "Line276": {
+      "Line269": {
          "Type": "Pass", 
          "Next": "Switch"
       }, 
-      "Line278": {
+      "Line271": {
          "Type": "Pass", 
          "Next": "Switch"
       }, 
-      "Line280": {
+      "Line273": {
          "Type": "Pass", 
          "Next": "Switch"
       }, 
       "Switch": {
          "InputPath": "$.foo", 
          "OutputPath": "$.foo", 
-         "Default": "Line296", 
+         "Default": "Line289", 
          "Type": "Choice", 
          "Choices": [
             {
                "Variable": "$.a", 
-               "Next": "Line288", 
+               "Next": "Line281", 
                "NumericEquals": 1
             }, 
             {
                "Variable": "$.a", 
                "StringEquals": "foo", 
-               "Next": "Line290"
+               "Next": "Line283"
             }, 
             {
                "Variable": "$.a", 
                "TimestampEquals": "1111-11-11T11:11:11Z", 
-               "Next": "Line292"
+               "Next": "Line285"
             }, 
             {
                "Variable": "$.a", 
                "BooleanEquals": false, 
-               "Next": "Line294"
+               "Next": "Line287"
             }
          ]
       }, 
-      "Line288": {
+      "Line281": {
          "Type": "Pass", 
          "Next": "Parallel"
       }, 
-      "Line290": {
+      "Line283": {
          "Type": "Pass", 
          "Next": "Parallel"
       }, 
-      "Line292": {
+      "Line285": {
          "Type": "Pass", 
          "Next": "Parallel"
       }, 
-      "Line294": {
+      "Line287": {
          "Type": "Pass", 
          "Next": "Parallel"
       }, 
-      "Line296": {
+      "Line289": {
          "Type": "Pass", 
          "Next": "Parallel"
       }, 
@@ -601,14 +600,14 @@
                "ErrorEquals": [
                   "States.ALL"
                ], 
-               "Next": "Line324"
+               "Next": "Line317"
             }
          ], 
          "InputPath": "$.foo", 
          "End": true, 
          "Type": "Parallel"
       }, 
-      "Line324": {
+      "Line317": {
          "Type": "Pass", 
          "Next": "Switch"
       }

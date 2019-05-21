@@ -180,7 +180,11 @@ user created and/or maintained workers that perform whatever custom logic is
 coded.
 
 AWS maintained APIs are in the format `_Type_._Function_()` and use the
-`parameters` block to pass argument.
+`parameters` block to pass argument. Some of the APIs are for asynchronous
+functions. By default Heaviside is configured to make these API calls as
+synchronous calls, so that the Step Function waits for the function's return.
+__To disable this default behavior__ the `sync: False` parameter can be used in
+the `parameters` block to convert the API call back to a asynchronous call.
 
 User maintained workers are either `Lambda()` or `Activity()`, with the difference
 being where the code that will be executed is located. For `Lambda()` the code

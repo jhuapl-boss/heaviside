@@ -39,8 +39,6 @@ Arn('arn:aws:service:region:account:task_type:name')
     parameters:
         KeyOne: 'ValueOne'
         KeyTwo: 'ValueTwo'
-        sync: True
-
 
 Batch.SubmitJob()
     """Batch.SubmitJob"""
@@ -135,7 +133,6 @@ ECS.RunTask()
         PlacementConstraints: {}
         PlacementStrategy: {}
         PlatformVersion: ''
-        sync: True
 
 SNS.Publish()
     """SNS.Publish"""
@@ -174,7 +171,6 @@ Glue.StartJobRun()
         Timeout: 1
         SecurityConfiguration: ''
         NotificationProperty: {}
-        sync: True
 
 SageMaker.CreateTrainingJob()
     """SageMaker.CreateTrainingJob"""
@@ -191,7 +187,6 @@ SageMaker.CreateTrainingJob()
         InputDataConfig: []
         Tags: []
         VpcConfig: {}
-        sync: True
 
 SageMaker.CreateTransformJob()
     """SageMaker.CreateTransformJob"""
@@ -208,8 +203,6 @@ SageMaker.CreateTransformJob()
         MaxConcurrentTransforms: 0
         MaxPayloadInMB: 0
         Tags: []
-        sync: True
-
 
 Wait(seconds=1)
     """Wait-Seconds"""

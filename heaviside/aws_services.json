@@ -2,6 +2,7 @@
     "Batch": {
         "SubmitJob": {
             "name": "submitJob",
+            "sync": true,
             "required_keys": [
                 "JobDefinition",
                 "JobName",
@@ -20,6 +21,7 @@
     "DynamoDB": {
         "GetItem": {
             "name": "getItem",
+            "sync": null,
             "required_keys": [
                 "Key",
                 "TableName"
@@ -34,6 +36,7 @@
         },
         "PutItem": {
             "name": "putItem",
+            "sync": null,
             "required_keys": [
                 "Item",
                 "TableName"
@@ -51,6 +54,7 @@
         },
         "DeleteItem": {
             "name": "deleteItem",
+            "sync": null,
             "required_keys": [
                 "Key",
                 "TableName"
@@ -68,6 +72,7 @@
         },
         "UpdateItem": {
             "name": "updateItem",
+            "sync": null,
             "required_keys": [
                 "Key",
                 "TableName"
@@ -89,6 +94,7 @@
     "ECS": {
         "RunTask": {
             "name": "runTask",
+            "sync": true,
             "required_keys": [
                 "TaskDefinition"
             ],
@@ -107,6 +113,7 @@
     "SNS": {
         "Publish": {
             "name": "publish",
+            "sync": null,
             "required_keys": [
                 "Message"
             ],
@@ -123,6 +130,7 @@
     "SQS": {
         "SendMessage": {
             "name": "sendMessage",
+            "sync": null,
             "required_keys": [
                 "MessageBody",
                 "QueueUrl"
@@ -138,6 +146,7 @@
     "Glue": {
         "StartJobRun": {
             "name": "startJobRun",
+            "sync": true,
             "required_keys": [
                 "JobName"
             ],
@@ -154,6 +163,7 @@
     "SageMaker": {
         "CreateTrainingJob": {
             "name": "createTrainingJob",
+            "sync": true,
             "required_keys": [
                 "AlgorithmSpecification",
                 "OutputDataConfig",
@@ -171,6 +181,7 @@
         },
         "CreateTransformJob": {
             "name": "createTransformJob",
+            "sync": true,
             "required_keys": [
                 "ModelName",
                 "TransformInput",

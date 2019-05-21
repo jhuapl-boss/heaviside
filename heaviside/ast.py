@@ -350,6 +350,7 @@ class ASTStateTask(ASTState):
             required = AWS_SERVICES[service.value][function.lookup]['required_keys']
             required = copy.copy(required) # will be mutating to determine missing required arguments
             optional = AWS_SERVICES[service.value][function.lookup]['optional_keys']
+            sync = AWS_SERVICES[service.value][function.lookup]['sync']
 
             if self.parameters:
                 # self.parameters can be None either if no `parameters:` block is provided
@@ -360,16 +361,17 @@ class ASTStateTask(ASTState):
                         k = k[:-2] # remove the `.$`, which donates that the key uses a JsonPath
 
                     if k == 'sync':
-                        value = self.parameters[key]
-                        if type(value) != bool:
+                        sync = self.parameters[key]
+                        if type(sync) != bool:
                             key.raise_error("Synchronous value must be a boolean")
-                        if value == True:
-                            function.value += '.sync'
                         del self.parameters[key]
                     elif k in required:
                         required.remove(k)
                     elif k not in optional:
                         key.raise_error("Invalid keyword argument")
+
+            if sync == True:
+                function.value += '.sync'
 
             if len(required) > 0:
                 missing = ", ".join(required)
