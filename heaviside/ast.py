@@ -136,6 +136,9 @@ class ASTModData(ASTModKV):
 class ASTModParameters(OrderedDict, ASTNode):
     name = 'Parameters'
 
+    # NOTE: kpv stands for (key, path marker, value)
+    #       where `path marker` is the token for the `$` that denotes is the
+    #       value contains a JsonPath
     def __init__(self, parameters, kpv, kpvs):
         OrderedDict.__init__(self)
         ASTNode.__init__(self, parameters.token)
@@ -715,7 +718,7 @@ class StateVisitor(object):
             branch (list): List of ASTState objects
         """
         if not hasattr(branch, 'states'):
-            raise ValueError("Tryping to visit non-branch state: {}".format(branch))
+            raise ValueError("Trying to visit non-branch state: {}".format(branch))
 
         for state in branch.states:
             self.dispatch(state)
