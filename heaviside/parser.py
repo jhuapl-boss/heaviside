@@ -78,6 +78,20 @@ def n_(name):
     """Skip the name with the given value"""
     return skip(n(name))
 
+def e(name):
+    """Get an ASTValue with the given error value
+
+    An ERRORTOKEN is any unrecognized input (invalid Python value)
+    or an unterminated single quote
+    """
+    return a(Token('ERRORTOKEN', name)) >> tok_to_value
+
+def e_(name):
+    """Skip the error with the given value"""
+    return skip(e(name))
+
+name = toktype('NAME')
+
 # Define true and false in terms of Python boolean values
 true = (n('true') | n('True')) >> const(True)
 false = (n('false') | n('False')) >> const(False)
@@ -161,8 +175,8 @@ def make_object(n):
 #=============
 # Parser Rules
 #=============
-def json_text():
-    """Returns the parser for Json formatted data"""
+def json_text_():
+    """Returns the parser for JSON Text"""
     # Taken from https://github.com/vlasovskikh/funcparserlib/blob/master/funcparserlib/tests/json.py
     # and modified slightly
     unwrap = lambda x: x.value
@@ -190,9 +204,9 @@ def json_text():
         | array
         | (number >> unwrap)
         | (string >> unwrap))
-    json_text = object | array
 
-    return json_text
+    return value
+json_text = json_text_()
 
 def comparison_():
     """Returns the parse for a compound compare statement"""
@@ -219,13 +233,15 @@ def comparison_():
     return comp_stmt
 comparison = comparison_()
 
-def parse(seq, translate=lambda x, y: y):
+def parse(seq, region = '', account_id = '', visitors=[]):
     """Parse the given sequence of tokens into a StateMachine object
 
     Args:
         seq (list): List of lexer.Token tokens to parse
-        translate (function): Translation function applied to Lambda/Activity names.
-                              Arguments are ("Lambda"|"Activity", arn)
+        region (string): AWS Region where Lambdas and Activities are located
+        account_id (string): AWS Account ID where where Lambdas and Activities are located
+        visitors (list[ast.StateVisitor]): List of StateVisitors that can be used modify
+                                           Task states
 
     Returns
         sfn.StateMachine: StateMachine object
@@ -237,6 +253,8 @@ def parse(seq, translate=lambda x, y: y):
 
     block = block_s + many(state) + block_e
     comment_block = block_s + maybe(string) + many(state) + block_e
+    parameter_kv = name + maybe(op_('.') + e('$')) + op_(':') + json_text
+    parameter_block = n('parameters') + op_(':') + block_s + parameter_kv + many(parameter_kv) + block_e >> make(ASTModParameters)
     retry_block = n('retry') + (array|string) + integer_pos + integer_nn + number >> make(ASTModRetry)
     catch_block = n('catch') + (array|string) + op_(':') + maybe(string) + block >> make(ASTModCatch)
 
@@ -250,8 +268,8 @@ def parse(seq, translate=lambda x, y: y):
                       (n('input') + op_(':') + string >> make(ASTModInput)) |
                       (n('result') + op_(':') + string >> make(ASTModResult)) |
                       (n('output') + op_(':') + string >> make(ASTModOutput)) |
-                      (n('data') + op_(':') + block_s + json_text() + block_e >> make(ASTModData)) |
-                      retry_block | catch_block)
+                      (n('data') + op_(':') + block_s + json_text + block_e >> make(ASTModData)) |
+                      parameter_block | retry_block | catch_block)
 
     state_modifiers = state_modifier + many(state_modifier) >> make(ASTModifiers)
     state_block = maybe(block_s + maybe(string) + maybe(state_modifiers) + block_e)
@@ -259,10 +277,10 @@ def parse(seq, translate=lambda x, y: y):
     pass_ = n('Pass') + op_('(') + op_(')') + state_block >> make(ASTStatePass)
     success = n('Success') + op_('(') + op_(')') + state_block >> make(ASTStateSuccess)
     fail = n('Fail') + op_('(') + string + op_(',') + string + op_(')') + state_block >> make(ASTStateFail)
-    task = (n('Lambda') | n('Activity')) + op_('(') + string + op_(')') + state_block >> make(ASTStateTask)
     wait_types = n('seconds') | n('seconds_path') | n('timestamp') | n('timestamp_path')
     wait = n('Wait') + op_('(') + wait_types + op_('=') + (integer_pos|timestamp_or_string) + op_(')') + state_block >> make(ASTStateWait)
-    simple_state = pass_ | success | fail | task | wait
+    task = name + maybe(op_('.') + name) + op_('(') + maybe(string) + op_(')') + state_block >> make(ASTStateTask)
+    simple_state = pass_ | success | fail | wait | task
 
     # Flow Control States
     transform_modifier = ((n('input') + op_(':') + string >> make(ASTModInput)) |
@@ -302,15 +320,17 @@ def parse(seq, translate=lambda x, y: y):
         (tree, _) = machine.run(seq, State())
         link_branch(tree)
         check_names(tree)
-        resolve_arns(tree, translate)
+        resolve_arns(tree, region, account_id)
         verify_goto_targets(tree)
+        for visitor in visitors:
+            visitor.visit(tree)
         function = StepFunction(tree)
         #import code
         #code.interact(local=locals())
 
         return function
-    except NoParseError as e:
-        max = e.state.max
+    except NoParseError as ex:
+        max = ex.state.max
         tok = seq[max] if len(seq) > max else Token('EOF', '<EOF>')
 
         if tok.code == 'ERRORTOKEN':

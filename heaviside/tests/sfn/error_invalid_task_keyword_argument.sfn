@@ -1,0 +1,3 @@
+DynamoDB.GetItem()
+    parameters:
+        Invalid: 'Keyword Argument'

@@ -173,19 +173,31 @@ Modifiers:
 * `data`: A block of Json data that will be used as the result of the state
 
 #### Task State
-There are two types of task states, `Lambda()` and `Activity()`. The difference
-is where the code that will be executed is living. For `Lambda()` the code is a
-AWS Lambda function. For `Activity()` the code can be running anywhere, and is
-responsible for polling AWS to see if there is new work for it to perform. Both
-states are like function calls, where input it taken, processing is done, and a
-result is returned.
+A task is a unit of work to be performed by the state machine and it is broken
+into two different categories. The first is AWS maintained APIs that can be used
+to execute a limited number of functions from other AWS services. The second is
+user created and/or maintained workers that perform whatever custom logic is
+coded.
+
+AWS maintained APIs are in the format `_Type_._Function_()` and use the
+`parameters` block to pass argument. Some of the APIs are for asynchronous
+functions. By default Heaviside is configured to make these API calls as
+synchronous calls, so that the Step Function waits for the function's return.
+__To disable this default behavior__ the `sync: False` parameter can be used in
+the `parameters` block to convert the API call back to a asynchronous call.
+
+User maintained workers are either `Lambda()` or `Activity()`, with the difference
+being where the code that will be executed is located. For `Lambda()` the code
+is an AWS Lambda function. For `Activity()` the code can be running anywhere,
+and is responsible for polling AWS to see if there is new work for it to perform.
 
 Activity ARNs are created in the Step Functions section of AWS (console or API).
 Once defined multiple workers can start polling for work and state machines can send
 data to the worker(s) for processing.
 
-    Lambda(name)
-    Activity(name)
+    _Type_('name')
+    _Type_._Function_()
+    Arn('arn')
         """State Name
         State Comment"""
         timeout: int
@@ -193,20 +205,46 @@ data to the worker(s) for processing.
         input: JsonPath
         result: JsonPath
         output: JsonPath
+        parameters:
+            Key1: {"JSON": "Text"}
+            Key2.$: "$.json_path.to.input.data"
         retry error(s) retry interval (seconds), max attempts, backoff rate
         catch error(s): JsonPath
             State(s)
 
+Tasks:
+* `_Type_('name')`: Either `Lambda()` or `Activity()`
+* `_Type_._Function_()`: One of the following (follow the link for details about
+                         what arguments are valid and required for the `parameters`
+                         block.
+    - [Batch.SubmitJob](https://docs.aws.amazon.com/step-functions/latest/dg/connectors-batch.html)
+    - [DynamoDB.GetItem](https://docs.aws.amazon.com/step-functions/latest/dg/connectors-ddb.html)
+    - [DynamoDB.PutItem](https://docs.aws.amazon.com/step-functions/latest/dg/connectors-ddb.html)
+    - [DynamoDB.DeleteItem](https://docs.aws.amazon.com/step-functions/latest/dg/connectors-ddb.html)
+    - [DynamoDB.UpdateItem](https://docs.aws.amazon.com/step-functions/latest/dg/connectors-ddb.html)
+    - [ECS.RunTask](https://docs.aws.amazon.com/step-functions/latest/dg/connectors-ecs.html)
+    - [SNS.Publish](https://docs.aws.amazon.com/step-functions/latest/dg/connectors-sns.html)
+    - [SQS.SendMessage](https://docs.aws.amazon.com/step-functions/latest/dg/connectors-sqs.html)
+    - [Glue.StartJobRun](https://docs.aws.amazon.com/step-functions/latest/dg/connectors-glue.html)
+    - [SageMaker.CreateTrainingJob](https://docs.aws.amazon.com/step-functions/latest/dg/connectors-sagemaker.html)
+    - [SageMaker.CreateTransformJob](https://docs.aws.amazon.com/step-functions/latest/dg/connectors-sagemaker.html)
+* `Arn('arn')`: Raw access for specifying the full ARN of the task to execute
+
 Arguments:
-* `name`: Full or partial ARN of the Lambda or Activity. A partial ARN leaves some
-          of the begining of the ARN off, to be automatically filled in during
-          compilation time. The farthest that this can be taken is just passing
-          the name of the Lambda or Activity.
+* `name`: The name of the Lambda or Activity. The full ARN will be created at
+          compile time using the given AWS region and account information.
+* `arn`: The full ARN of an Activity, Lambda, or other AWS API to be executed.
+         This allows calling Activities hosted in different regions / accounts
+         or calling new AWS APIs before this library is updated to handle them.
 
 Modifiers:
 * `timeout`: Number of seconds before the task times out (Default: 60 seconds)
 * `heatbeat`: Number of seconds before the task times out if no heartbeat has been
               received from the task. Needs to be less than the `timeout` value.
+* `parameters`: Keyword arguments to be passed in the API call. The value is a
+                JSON text, which may be a JsonPath referencing data from the
+                state's input data object.
+                NOTE: If the value contains a JsonPath the key must end wit `.$`
 * `retry`: If the given error(s) were encountered, rerun the state
   - `error(s)`: A single string, array of strings, or empty array of errors to match
               against. An empty array matches against all errors.

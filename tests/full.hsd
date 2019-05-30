@@ -16,7 +16,7 @@ Pass()
     data:
         {}
 
-Lambda('arn')
+Lambda('FUNCTION_NAME')
     '''Lambda
     Comment'''
     timeout: 2
@@ -31,8 +31,178 @@ Lambda('arn')
     catch ['two']: '$.foo'
         Success()
 
-Activity('activity:FUNCTION_NAME')
+Activity('FUNCTION_NAME')
     """Activity"""
+
+Arn('arn:aws:service:region:account:task_type:name')
+    """Raw ARN Task"""
+    parameters:
+        KeyOne: 'ValueOne'
+        KeyTwo: 'ValueTwo'
+
+Batch.SubmitJob()
+    """Batch.SubmitJob"""
+    parameters:
+        JobName: 'Name'
+        JobDefinition: ''
+        JobQueue: 'arn'
+
+        # Optional keyword arguments
+        ArrayProperties: {}
+        ContainerOverrides: {}
+        DependsOn: []
+        Parameters: {}
+        RetryStrategy: {}
+        Timeout: {}
+        sync: False
+
+DynamoDB.GetItem()
+    """DynamoDB.GetItem"""
+    parameters:
+        TableName: 'Table'
+        Key: {}
+
+        # Optional keyword arguments
+        AttributesToGet: []
+        ConsistentRead: True
+        ExpressionAttributeNames: {}
+        ProjectionExpression: ''
+        ReturnConsumedCapacity: ''
+
+DynamoDB.PutItem()
+    """DynamoDB.PutItem"""
+    parameters:
+        TableName: 'Table'
+        Item: {}
+
+        # Optional keyword arguments
+        ConditionalOperator: ''
+        ConditionExpression: ''
+        Expected: {}
+        ExpressionAttributeNames: {}
+        ExpressionAttributeValues: {}
+        ReturnConsumedCapacity: ''
+        ReturnItemCollectionMetrics: ''
+        ReturnValues: ''
+
+DynamoDB.DeleteItem()
+    """DynamoDB.DeleteItem"""
+    parameters:
+        TableName: 'Table'
+        Key: {}
+
+        # Optional keyword arguments
+        ConditionalOperator: ''
+        ConditionExpression: ''
+        Expected: {}
+        ExpressionAttributeNames: {}
+        ExpressionAttributeValues: {}
+        ReturnConsumedCapacity: ''
+        ReturnItemCollectionMetrics: ''
+        ReturnValues: ''
+
+DynamoDB.UpdateItem()
+    """DynamoDB.UpdateItem"""
+    parameters:
+        TableName: 'Table'
+        Key: {}
+
+        # Optional keyword arguments
+        AttributeUpdates: {}
+        ConditionalOperator: ''
+        ConditionExpression: ''
+        Expected: {}
+        ExpressionAttributeNames: {}
+        ExpressionAttributeValues: {}
+        ReturnConsumedCapacity: ''
+        ReturnItemCollectionMetrics: ''
+        ReturnValues: ''
+        UpdateExpression: ''
+
+ECS.RunTask()
+    """ECS.RunTask"""
+    parameters:
+        TaskDefinition: ''
+
+        # Optional keyword arguments
+        Cluster: ''
+        Group: ''
+        LaunchType: ''
+        NetworkConfiguration: {}
+        Overrides: {}
+        PlacementConstraints: {}
+        PlacementStrategy: {}
+        PlatformVersion: ''
+
+SNS.Publish()
+    """SNS.Publish"""
+    parameters:
+        Message: ''
+
+        # Optional keyword arguments
+        MessageAttributes: {}
+        MessageStructure: ''
+        PhoneNumber: ''
+        Subject: ''
+        TargetArn: ''
+        TopicArn: ''
+
+SQS.SendMessage()
+    """SQS.SendMessage"""
+    parameters:
+        QueueUrl: ''
+        MessageBody: ''
+
+        # Optional keyword arguments
+        DelaySeconds: 0
+        MessageAttributes: {}
+        MessageDeduplicationId: ''
+        MessageGroupId: ''
+
+Glue.StartJobRun()
+    """Glue.StartJobRun"""
+    parameters:
+        JobName: ''
+
+        # Optional keyword arguments
+        JobRunId: ''
+        Arguments: {}
+        AllocatedCapacity: 0
+        Timeout: 1
+        SecurityConfiguration: ''
+        NotificationProperty: {}
+
+SageMaker.CreateTrainingJob()
+    """SageMaker.CreateTrainingJob"""
+    parameters:
+        TrainingJobName: ''
+        AlgorithmSpecification: {}
+        OutputDataConfig: {}
+        ResourceConfig: {}
+        RoleArn: ''
+        StoppingCondition: {}
+
+        # Optional keyword arguments
+        HyperParameters: {}
+        InputDataConfig: []
+        Tags: []
+        VpcConfig: {}
+
+SageMaker.CreateTransformJob()
+    """SageMaker.CreateTransformJob"""
+    parameters:
+        TransformJobName: ''
+        ModelName: ''
+        TransformInput: {}
+        TransformOutput: {}
+        TransformResources: {}
+
+        # Optional keyword arguments
+        BatchStrategy: ''
+        Environment: {}
+        MaxConcurrentTransforms: 0
+        MaxPayloadInMB: 0
+        Tags: []
 
 Wait(seconds=1)
     """Wait-Seconds"""
@@ -126,6 +296,9 @@ parallel:
     Success()
         """Success
         Comment"""
+        # DP NOTE 2019/05/19: AWS Console considers InputPath / OutputPath
+        # invalid for the Succeed state, even though the language definition
+        # says it is valid, but will allow creating a Step Function with them
         input: '$.foo'
         output: '$.foo'
 

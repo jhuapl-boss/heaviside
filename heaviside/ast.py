@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import copy
 from collections import OrderedDict
 
 from funcparserlib.parser import (some, a, skip)
@@ -19,6 +20,20 @@ from funcparserlib.parser import (some, a, skip)
 from .lexer import Token
 from .exceptions import CompileError
 from .utils import isstr
+
+#################################################
+#### Load AWS Service Integration Definitions####
+#################################################
+
+import os
+import json
+cur_dir = os.path.dirname(__file__)
+definitions = os.path.join(cur_dir, 'aws_services.json')
+with open(definitions, 'r') as fh:
+    AWS_SERVICES = json.load(fh)
+
+#################################################
+#################################################
 
 # AST Objects
 class ASTNode(object):
@@ -117,6 +132,28 @@ class ASTModOutput(ASTModKV):
 
 class ASTModData(ASTModKV):
     name = 'Data'
+
+class ASTModParameters(OrderedDict, ASTNode):
+    name = 'Parameters'
+
+    # NOTE: kpv stands for (key, path marker, value)
+    #       where `path marker` is the token for the `$` that denotes is the
+    #       value contains a JsonPath
+    def __init__(self, parameters, kpv, kpvs):
+        OrderedDict.__init__(self)
+        ASTNode.__init__(self, parameters.token)
+
+        self.add_parameter(kpv)
+        for kpv in kpvs:
+            self.add_parameter(kpv)
+
+    def add_parameter(self, kpv):
+        k,p,v = kpv
+        if p is not None:
+            k.value += '.$' # Parameters that use a JsonPath must have the key
+                            # end with `.$`
+
+        self[k] = v
 
 class ASTModRetry(ASTNode):
     name = 'Retry'
@@ -221,6 +258,7 @@ class ASTState(ASTNode):
         self.result = get(ASTModResult)
         self.output = get(ASTModOutput)
         self.data = get(ASTModData)
+        self.parameters = get(ASTModParameters)
         self.retry = get(ASTModRetry)
         self.catch = get(ASTModCatch)
 
@@ -269,12 +307,81 @@ class ASTStateTask(ASTState):
                        ASTModInput,
                        ASTModResult,
                        ASTModOutput,
+                       ASTModParameters,
                        ASTModRetry,
                        ASTModCatch]
 
-    def __init__(self, state, arn, block):
-        super(ASTStateTask, self).__init__(state, block)
-        self.arn = arn
+    valid_services = ['Arn',
+                      'Lambda',
+                      'Activity']
+
+    def __init__(self, service, function, name, block):
+        super(ASTStateTask, self).__init__(service, block)
+
+        if service.value not in self.valid_services and \
+           service.value not in AWS_SERVICES.keys():
+            service.raise_error('Invalid Task service')
+
+        if function is None:
+            if service.value in ('Lambda', 'Activity', 'Arn'):
+                if name is None:
+                    service.raise_error('{} task requires a function name argument'.format(service.value))
+
+                function = name
+                name = None
+            else:
+                service.raise_error('{} task requires a function to call'.format(service.value))
+        else:
+            if service.value in ('Lambda', 'Activity', 'Arn'):
+                function.raise_error('Unexpected function name')
+            else:
+                try:
+                    function.lookup = function.value # Save value for looking up when checking kwargs
+                    function.value = AWS_SERVICES[service.value][function.value]['name']
+                except KeyError:
+                    function.raise_error('Invalid Task function')
+
+        if name is not None:
+            name.raise_error('Unexpected argument')
+
+        if service.value == 'Arn' and not function.value.startswith('arn:aws:'):
+            function.raise_error("ARN must start with 'arn:aws:'")
+        if service.value in ('Lambda', 'Activity') and self.parameters is not None:
+            tuple(self.parameters.keys())[0].raise_error('Unexpected keyword argument')
+
+        if service.value not in ('Lambda', 'Activity', 'Arn'):
+            required = AWS_SERVICES[service.value][function.lookup]['required_keys']
+            required = copy.copy(required) # will be mutating to determine missing required arguments
+            optional = AWS_SERVICES[service.value][function.lookup]['optional_keys']
+            sync = AWS_SERVICES[service.value][function.lookup]['sync']
+
+            if self.parameters:
+                # self.parameters can be None either if no `parameters:` block is provided
+                # or if there is a syntax error in the `parameters:` block
+                for key in self.parameters.keys():
+                    k = key.value
+                    if k.endswith('.$'):
+                        k = k[:-2] # remove the `.$`, which donates that the key uses a JsonPath
+
+                    if k == 'sync':
+                        sync = self.parameters[key]
+                        if type(sync) != bool:
+                            key.raise_error("Synchronous value must be a boolean")
+                        del self.parameters[key]
+                    elif k in required:
+                        required.remove(k)
+                    elif k not in optional:
+                        key.raise_error("Invalid keyword argument")
+
+            if sync == True:
+                function.value += '.sync'
+
+            if len(required) > 0:
+                missing = ", ".join(required)
+                function.raise_error("Missing required keyword arguments: {}".format(missing))
+
+        self.service = service
+        self.function = function
 
 class ASTStateWait(ASTState):
     state_type = 'Wait'
@@ -513,33 +620,44 @@ def check_names(branch):
                 for branch in state.branches:
                     to_process.append(branch.states)
 
-def resolve_arns(branch, translate = lambda x, y: y):
-    """AST Transform that looks for all Task states and passed the task type
-    and (partial) ARN to a callback. Used for resolving partial ARNs to full
-    ARNs.
+def resolve_arns(branch, region = '', account_id = ''):
+    """AST Transform that sets the `arn` attribute for ASTStateTasks
 
     Args:
         branch (list): List of ASTState objects
-        translate (callable): Callable that receives task type and ARN
-                              Returned ARN replaces the current value in the
-                              ASTStateTask
-
-    Raises:
-        CompileError : If the translate function raises an exception
+        region (str): AWS Region where the Lambdas / Activities reside
+        account_id (str): AWS Account ID where the Lambdas / Activities reside
     """
     if not hasattr(branch, 'states'):
         branch.raise_error("Trying to resolve arns for non-branch state")
 
     for state in branch.states:
         if isinstance(state, ASTStateTask):
-            try:
-                state.arn.value = translate(state.token.value, state.arn.value)
-            except Exception as e:
-                state.raise_error(str(e))
+            if state.service.value == 'Arn':
+                # ARN value already checked for 'arn:aws:' prefix in ASTStateTask constructor
+                state.arn = state.function.value
+            else:
+                # arn:partition:service:region:account:task_type:name
+                if state.service.value == 'Lambda':
+                    service = 'lambda'
+                    task_type = 'function'
+                else:
+                    service = 'states'
+                    task_type = state.service.value.lower()
+                if state.service.value not in ('Lambda', 'Activity'):
+                    region = ''
+                    account_id = ''
+                parts = ['arn', 'aws',
+                         service,
+                         region,
+                         account_id,
+                         task_type,
+                         state.function.value]
+                state.arn = ":".join(parts)
 
         elif isinstance(state, ASTStateParallel):
             for branch in state.branches:
-                resolve_arns(branch, translate)
+                resolve_arns(branch, region, account_id)
 
 def verify_goto_targets(branch):
     """Recursivly checks that all Goto states target valid state names
@@ -574,3 +692,45 @@ def verify_goto_targets(branch):
             if isinstance(state.next, ASTModNext):
                 if state.next.value not in names:
                     state.next.raise_error("Goto target '{}' doesn't exist".format(state.next.value))
+
+class StateVisitor(object):
+    """Generic base class for heaviside users to create a visitor that can modify
+    ASTStateTasks
+    """
+
+    def dispatch(self, state):
+        """Dispatch the given state to the approprate handler function
+
+        Args:
+            state (ASTState): State to dispatch
+        """
+
+        if isinstance(state, ASTStateTask):
+            self.handle_task(state)
+        else:
+            raise ValueError('State type {} not supported'.format(type(state)))
+
+    def visit(self, branch):
+        """Visit all states in all branches of the state machine and dispatch
+        them to be handled the subclass
+
+        Args:
+            branch (list): List of ASTState objects
+        """
+        if not hasattr(branch, 'states'):
+            raise ValueError("Trying to visit non-branch state: {}".format(branch))
+
+        for state in branch.states:
+            self.dispatch(state)
+
+            if isinstance(state, ASTStateParallel):
+                for branch in state.branches:
+                    self.visit(branch)
+
+    def handle_task(self, state):
+        """ASTStateTask handler function placeholder
+
+        Args:
+            state (ASTStateTask): State to handle
+        """
+        pass

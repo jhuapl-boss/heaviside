@@ -14,6 +14,7 @@
 
 import os
 import sys
+import json
 import unittest
 from io import StringIO
 
@@ -102,32 +103,46 @@ class TestCompile(unittest.TestCase):
     def test_invalid_goto_target(self):
         self.execute('error_invalid_goto_target.sfn', "Goto target 'Target' doesn't exist")
 
-class TestTranslate(unittest.TestCase):
-    def test_lambda(self):
-        expected = 'arn:aws:lambda:region:account:function:Test'
-        actual = heaviside.create_translate('region', 'account')('Lambda', 'Test')
+    def test_invalid_task_service(self):
+        self.execute('error_invalid_task_service.sfn', "Invalid Task service")
 
-        self.assertEqual(actual, expected)
+    def test_missing_task_function_argument(self):
+        self.execute('error_missing_task_function_argument.sfn', "Lambda task requires a function name argument")
 
-    def test_activity(self):
-        expected = 'arn:aws:states:region:account:activity:Test'
-        actual = heaviside.create_translate('region', 'account')('Activity', 'Test')
+    def test_missing_task_function(self):
+        self.execute('error_missing_task_function.sfn', "DynamoDB task requires a function to call")
 
-        self.assertEqual(actual, expected)
+    def test_unexpected_task_function(self):
+        self.execute('error_unexpected_task_function.sfn', "Unexpected function name")
 
-    def test_invalid_arg(self):
-        with self.assertRaises(TypeError):
-            heaviside.create_translate(None, None)('Lambda', 'Test')
+    def test_invalid_task_function(self):
+        self.execute('error_invalid_task_function.sfn', "Invalid Task function")
 
-    def test_none(self):
-        expected = 'arn:aws:states:region:account:activity:Test'
-        actual = heaviside.create_translate('xxxxxx', 'xxxxxxx')('Activity', expected)
+    def test_invalid_task_arn(self):
+        self.execute('error_invalid_task_arn.sfn', "ARN must start with 'arn:aws:'")
 
-        self.assertEqual(actual, expected)
+    def test_unexpected_task_argument(self):
+        self.execute('error_unexpected_task_argument.sfn', "Unexpected argument")
 
-    def test_partial(self):
-        expected = 'arn:aws:states:region:account:activity:Test'
-        actual = heaviside.create_translate('region', 'xxxxxxx')('Activity', 'account:activity:Test')
+    def test_unexpected_task_keyword_argument(self):
+        self.execute('error_unexpected_task_keyword_argument.sfn', "Unexpected keyword argument")
 
-        self.assertEqual(actual, expected)
+    def test_invalid_task_sync_value(self):
+        self.execute('error_invalid_task_sync_value.sfn', "Synchronous value must be a boolean")
 
+    def test_invalid_task_keyword_argument(self):
+        self.execute('error_invalid_task_keyword_argument.sfn', "Invalid keyword argument")
+
+    def test_missing_task_keyword_argument(self):
+        self.execute('error_missing_task_keyword_argument.sfn', "Missing required keyword arguments: JobDefinition, JobQueue")
+
+    def test_visitor(self):
+        class TestVisitor(heaviside.ast.StateVisitor):
+            def handle_task(self, task):
+                task.arn = 'modified'
+
+        hsd = u"""Lambda('function')"""
+        out = heaviside.compile(hsd, visitors=[TestVisitor()])
+        out = json.loads(out)
+
+        self.assertEqual(out['States']['Line1']['Resource'], 'modified')

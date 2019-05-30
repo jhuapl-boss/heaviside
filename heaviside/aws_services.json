@@ -1,0 +1,201 @@
+{
+    "Batch": {
+        "SubmitJob": {
+            "name": "submitJob",
+            "sync": true,
+            "required_keys": [
+                "JobDefinition",
+                "JobName",
+                "JobQueue"
+            ],
+            "optional_keys": [
+                "ArrayProperties",
+                "ContainerOverrides",
+                "DependsOn",
+                "Parameters",
+                "RetryStrategy",
+                "Timeout"
+            ]
+        }
+    },
+    "DynamoDB": {
+        "GetItem": {
+            "name": "getItem",
+            "sync": null,
+            "required_keys": [
+                "Key",
+                "TableName"
+            ],
+            "optional_keys": [
+                "AttributesToGet",
+                "ConsistentRead",
+                "ExpressionAttributeNames",
+                "ProjectionExpression",
+                "ReturnConsumedCapacity"
+            ]
+        },
+        "PutItem": {
+            "name": "putItem",
+            "sync": null,
+            "required_keys": [
+                "Item",
+                "TableName"
+            ],
+            "optional_keys": [
+                "ConditionalOperator",
+                "ConditionExpression",
+                "Expected",
+                "ExpressionAttributeNames",
+                "ExpressionAttributeValues",
+                "ReturnConsumedCapacity",
+                "ReturnItemCollectionMetrics",
+                "ReturnValues"
+            ]
+        },
+        "DeleteItem": {
+            "name": "deleteItem",
+            "sync": null,
+            "required_keys": [
+                "Key",
+                "TableName"
+            ],
+            "optional_keys": [
+                "ConditionalOperator",
+                "ConditionExpression",
+                "Expected",
+                "ExpressionAttributeNames",
+                "ExpressionAttributeValues",
+                "ReturnConsumedCapacity",
+                "ReturnItemCollectionMetrics",
+                "ReturnValues"
+            ]
+        },
+        "UpdateItem": {
+            "name": "updateItem",
+            "sync": null,
+            "required_keys": [
+                "Key",
+                "TableName"
+            ],
+            "optional_keys": [
+                "AttributeUpdates",
+                "ConditionalOperator",
+                "ConditionExpression",
+                "Expected",
+                "ExpressionAttributeNames",
+                "ExpressionAttributeValues",
+                "ReturnConsumedCapacity",
+                "ReturnItemCollectionMetrics",
+                "ReturnValues",
+                "UpdateExpression"
+            ]
+        }
+    },
+    "ECS": {
+        "RunTask": {
+            "name": "runTask",
+            "sync": true,
+            "required_keys": [
+                "TaskDefinition"
+            ],
+            "optional_keys": [
+                "Cluster",
+                "Group",
+                "LaunchType",
+                "NetworkConfiguration",
+                "Overrides",
+                "PlacementConstraints",
+                "PlacementStrategy",
+                "PlatformVersion"
+            ]
+        }
+    },
+    "SNS": {
+        "Publish": {
+            "name": "publish",
+            "sync": null,
+            "required_keys": [
+                "Message"
+            ],
+            "optional_keys": [
+                "MessageAttributes",
+                "MessageStructure",
+                "PhoneNumber",
+                "Subject",
+                "TargetArn",
+                "TopicArn"
+            ]
+        }
+    },
+    "SQS": {
+        "SendMessage": {
+            "name": "sendMessage",
+            "sync": null,
+            "required_keys": [
+                "MessageBody",
+                "QueueUrl"
+            ],
+            "optional_keys": [
+                "DelaySeconds",
+                "MessageAttributes",
+                "MessageDeduplicationId",
+                "MessageGroupId"
+            ]
+        }
+    },
+    "Glue": {
+        "StartJobRun": {
+            "name": "startJobRun",
+            "sync": true,
+            "required_keys": [
+                "JobName"
+            ],
+            "optional_keys": [
+                "JobRunId",
+                "Arguments",
+                "AllocatedCapacity",
+                "Timeout",
+                "SecurityConfiguration",
+                "NotificationProperty"
+            ]
+        }
+    },
+    "SageMaker": {
+        "CreateTrainingJob": {
+            "name": "createTrainingJob",
+            "sync": true,
+            "required_keys": [
+                "AlgorithmSpecification",
+                "OutputDataConfig",
+                "ResourceConfig",
+                "RoleArn",
+                "StoppingCondition",
+                "TrainingJobName"
+            ],
+            "optional_keys": [
+                "HyperParameters",
+                "InputDataConfig",
+                "Tags",
+                "VpcConfig"
+            ]
+        },
+        "CreateTransformJob": {
+            "name": "createTransformJob",
+            "sync": true,
+            "required_keys": [
+                "ModelName",
+                "TransformInput",
+                "TransformJobName",
+                "TransformOutput",
+                "TransformResources"
+            ],
+            "optional_keys": [
+                "BatchStrategy",
+                "Environment",
+                "MaxConcurrentTransforms",
+                "MaxPayloadInMB",
+                "Tags"
+            ]
+        }
+    }
+}

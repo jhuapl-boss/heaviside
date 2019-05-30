@@ -15,6 +15,7 @@
 from __future__ import unicode_literals
 
 import unittest
+import sys
 from io import StringIO
 
 try:
@@ -69,6 +70,52 @@ class TestRead(unittest.TestCase):
             with utils.read(None) as fh:
                 pass
 
+class TestWrite(unittest.TestCase):
+    def test_stdout(self):
+        with utils.write('-') as fh:
+            self.assertEqual(sys.stdout, fh)
+
+    @mock.patch.object(utils.Path, 'open')
+    def test_string(self, mOpen):
+        path = '/path/to/file'
+        data = "foo bar boo"
+
+        with utils.write(path) as fh:
+            fh.write(data)
+
+        expected = [mock.call('w'),
+                    mock.call().write(data),
+                    mock.call().close()]
+        self.assertEqual(mOpen.mock_calls, expected)
+
+    @mock.patch.object(utils.Path, 'open')
+    def test_path(self, mOpen):
+        path = utils.Path('/path/to/file')
+        data = "foo bar boo"
+
+        with utils.write(path) as fh:
+            fh.write(data)
+
+        expected = [mock.call('w'),
+                    mock.call().write(data),
+                    mock.call().close()]
+        self.assertEqual(mOpen.mock_calls, expected)
+
+    def test_fileobj(self):
+        data = "foo bar boo"
+        obj = StringIO()
+
+        with utils.write(obj) as fh:
+            self.assertEqual(obj, fh)
+            fh.write(data)
+
+        obj.seek(0)
+        self.assertEqual(data, obj.read())
+
+    def test_unsuported(self):
+        with self.assertRaises(ValueError):
+            with utils.write(None) as fh:
+                pass
 
 class TestCreateSession(unittest.TestCase):
     @mock.patch('heaviside.utils.Session', autospec=True)

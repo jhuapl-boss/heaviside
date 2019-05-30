@@ -26,59 +26,15 @@ from .parser import parse
 from .exceptions import CompileError, HeavisideError
 from .utils import create_session, read
 
-def create_translate(region, account_id):
-    """Create translation function that will generate the full ARN URI from a
-   given Lambda or Activity name.
-
-    Note: region / account_id can be None if those parts of the ARN are already
-          specified
-
-    Args:
-        region (string) : The region name for the ARN
-        account_id (string) : The account id for the ARN
-
-    Returns:
-        function : translate function that can be passed to compile()
-    """
-    def _translate(type_, function):
-        """Common implementation of a translate function the fills out the
-        whole ARN
-
-        Args:
-            type_ (string): Lambda | Activity
-            function (string): Name of Lambda / Activity
-
-        Returns:
-            string: ARN URI of the Lambda / Activity
-        """
-        if type_ == "Lambda":
-            defaults = ['arn', 'aws', 'lambda', region, account_id, 'function']
-        else:
-            defaults = ['arn', 'aws', 'states', region, account_id, 'activity']
-
-        parts = function.split(':')
-        name = parts.pop()
-        offset = len(defaults) - len(parts)
-        try:
-            # Wrap the join because an error should only be produced if we try
-            # to use a None value. None can be passed in the defaults if that
-            # default value is never used
-            vals = defaults[:offset]
-            vals.extend(parts)
-            vals.append(name)
-            arn = ":".join(vals)
-            return arn
-        except TypeError:
-            raise TypeError("One or more of the default values for {} ARN '{}' was not specified".format(type_, function))
-    return _translate
-
-def compile(source, translate=None, **kwargs):
+def compile(source, region = '', account_id = '', visitors = [], **kwargs):
     """Compile a source step function dsl file into the AWS state machine definition
 
     Args:
         source (string|Path|file object): Source of step function dsl, passed to read()
-        translate (None|function): Function that translates a Lambda / Activity name before
-                                   the ARN is completed
+        region (string): AWS Region where Lambdas and Activities are located
+        account_id (string): AWS Account ID where where Lambdas and Activities are located
+        visitors (list[ast.StateVisitor]): List of StateVisitors that can be used modify
+                                           Task states
         kwargs (dict): Arguments to be passed to json.dumps() when creating the definition
 
     Returns:
@@ -92,10 +48,10 @@ def compile(source, translate=None, **kwargs):
                 source_name = "<unknown>"
             tokens = tokenize_source(fh.readline)
 
-        if translate is None:
-            translate = lambda x, y: y
-
-        machine = parse(tokens, translate)
+        machine = parse(tokens,
+                        region = region,
+                        account_id = account_id,
+                        visitors = visitors)
         def_ = machine.definition(**kwargs)
         return def_
     except CompileError as e:
@@ -115,16 +71,24 @@ class StateMachine(object):
         """
         self.name = name
         self.arn = None
+        self.visitors = []
         self.session, self.account_id = create_session(**kwargs)
         self.region = self.session.region_name
         self.client = self.session.client('stepfunctions')
-        self._translate = create_translate(self.region, self.account_id)
 
         resp = self.client.list_state_machines()
         for machine in resp['stateMachines']:
             if machine['name'] == name:
                 self.arn = machine['stateMachineArn']
                 break
+
+    def add_visitor(self, visitor):
+        """Add a StateVisitor to be used when compiling
+
+        Args:
+            visitor (ast.StateVisitor): a Visitor to use when compiling
+        """
+        self.visitors.append(visitor)
 
     def build(self, source, **kwargs):
         """Build the state machine definition from a source (file)
@@ -141,7 +105,11 @@ class StateMachine(object):
         Raises:
             CompileError: If the was a problem compiling the source
         """
-        return compile(source, self._translate, **kwargs)
+        return compile(source,
+                       region = self.region,
+                       account_id = self.account_id,
+                       visitors = self.visitors,
+                       **kwargs)
 
     def _resolve_role(self, role):
         role = role.strip()
