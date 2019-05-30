@@ -55,7 +55,7 @@ Heaviside utility functions.
 
 ### Path
 
-Heaviside makes use of `pathlib.Path` to be able to determine if the given argument is a file path reference or if it is a string containing the data to workwith. Because `pathlib` was added in Python 3.4 Heaviside includes a minimal implementation that covers just the features used internally by Heaviside.
+Heaviside makes use of `pathlib.Path` to be able to determine if the given argument is a file path reference or if it is a string containing the data to work with. Because `pathlib` was added in Python 3.4 Heaviside includes a minimal implementation that covers just the features used internally by Heaviside.
 
 This minimal implementation is only used if the current runtime doesn't have `pathlib`. If `pathlib.Path` is available it is exposed as `heaviside.utils.Path` so that code can be interoperable between different Python version.
 
