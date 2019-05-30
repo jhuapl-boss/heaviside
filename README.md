@@ -94,15 +94,8 @@ execution has finished and will print the output of the StepFunction.
 
 ## Python Library
 
-The Heaviside package installs the Python library `heaviside`. There are three
-components to the library.
-
-* `heaviside.compile`: The method used to compile a Heaviside DSL file into
-                       a AWS StepFunction.
-* `heaviside.StateMachine`: Class for creating and executing StepFunctions.
-* `heaviside.activities`: A submodule containing several helper classes providing
-                          a framework for running StepFunction Activities.
-                          See the [Activities document] for more information.
+The Heaviside package installs the Python library `heaviside`. The public
+API is documented in the [Library API](docs/LibraryAPI.md) file.
 
 ## Compatability
 
