@@ -47,6 +47,7 @@ setup(
     author_email='Derek.Pryor@jhuapl.edu',
     description='Python library and DSL for working with AWS StepFunctions',
     long_description=read('README.md'),
+    long_description_content_type='text/markdown',
     tests_require=['mock'],
     install_requires=read('requirements.txt').split('\n'),
     classifiers=[
