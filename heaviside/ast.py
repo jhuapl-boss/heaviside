@@ -707,8 +707,6 @@ class StateVisitor(object):
 
         if isinstance(state, ASTStateTask):
             self.handle_task(state)
-        else:
-            raise ValueError('State type {} not supported'.format(type(state)))
 
     def visit(self, branch):
         """Visit all states in all branches of the state machine and dispatch

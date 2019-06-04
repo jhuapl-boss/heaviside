@@ -1,5 +1,8 @@
 # Heaviside Changelog
 
+## 2.0.1 (pre-release)
+ * Fix bug in `heaviside.ast.StateVisitor` implementation
+
 ## 2.0
  * New features
     - Added support for `goto` control flow construct
