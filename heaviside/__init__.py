@@ -147,6 +147,33 @@ class StateMachine(object):
 
         self.arn = resp['stateMachineArn']
 
+    def update(self, source=None, role=None):
+        """Update the state machine definition and/or IAM role in AWS
+
+        If the state machine doesn't exist an exception is thrown
+
+        Args:
+            source (string|file path|file object): Optional, source of step function dsl
+            role (string): Optional, AWS IAM role for the state machine to execute under
+
+        Raises:
+            CompileError: If the was a problem compiling the source
+        """
+        if source is None and role is None:
+            raise ValueError("Either 'source' or 'role' need to be provided")
+        if self.arn is None:
+            raise HeavisideError("State Machine {} doesn't exist yet".format(self.arn))
+
+        args = {'stateMachineArn': self.arn}
+
+        if source is not None:
+            args['definition'] = self.build(source)
+
+        if role is not None:
+            args['roleArn'] = self._resolve_role(role)
+
+        resp = self.client.update_state_machine(**args)
+
     def delete(self, exception=False):
         """Delete the state machine from AWS
 

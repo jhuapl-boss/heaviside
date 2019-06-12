@@ -68,6 +68,26 @@ $ heaviside create state_machine.hsd AwsIamStepFunctionRole
 ```
 
 Arguments:
+* `state_machine.hsd`: The path to the Step Function definition written in the
+                       Heaviside DSL.
+* `AwsIamStepFunctionRole`: The AWS IAM Role that the StepFunction will use
+                            when executing. Most often this will be used to
+                            control which Lambdas and Activities the
+                            StepFunction has permission to execute.
+
+#### Updating a StepFunction
+
+The `heaviside` script can update an existing Step Function definition and / or
+IAM role in AWS.
+
+```
+$ heaviside update state_machine --file  state_machine.hsd --role AwsIamStepFunctionRole
+```
+
+Arguments:
+* `state_machine`: Name of the state machine to update
+* `state_machine.hsd`: The path to the Step Function definition written in the
+                       Heaviside DSL.
 * `AwsIamStepFunctionRole`: The AWS IAM Role that the StepFunction will use
                             when executing. Most often this will be used to
                             control which Lambdas and Activities the

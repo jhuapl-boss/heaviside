@@ -1,7 +1,8 @@
 # Heaviside Changelog
 
-## 2.0.1 (pre-release)
+## 2.1.0 (pre-release)
  * Fix bug in `heaviside.ast.StateVisitor` implementation
+ * Added support for updating existing Step Functions
 
 ## 2.0
  * New features

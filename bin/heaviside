@@ -88,6 +88,15 @@ if __name__ == '__main__':
     create_parser.add_argument("role",
                                help="AWS IAM role name or full ARN of the role for the StepFunction")
 
+    #### update ####
+    update_parser = subparsers.add_parser('update', help='Compile a Heaviside file and create a AWS StepFunction')
+    update_parser.add_argument('name',
+                               help = "Name of the StepFunction to update")
+    update_parser.add_argument("--file", "-f",
+                               help="heaviside file to compile and update")
+    update_parser.add_argument("--role", "-r",
+                               help="AWS IAM role name or full ARN of the role for the StepFunction")
+
     #### delete ####
     delete_parser = subparsers.add_parser('delete', help='Delete an AWS StepFunction')
     delete_parser.add_argument("name",
@@ -156,6 +165,12 @@ if __name__ == '__main__':
 
             machine = heaviside.StateMachine(name, **credentials)
             machine.create(Path(args.file), args.role)
+        elif args.command == "update":
+            if args.file:
+                args.file = Path(args.file)
+
+            machine = heaviside.StateMachine(args.name, **credentials)
+            machine.update(args.file, args.role)
         elif args.command == "delete":
             machine = heaviside.StateMachine(args.name, **credentials)
             machine.delete(True)

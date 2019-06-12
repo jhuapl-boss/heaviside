@@ -28,6 +28,7 @@ This document describes the public API available to other developers using the H
   - [Add Visitor](#Add-Visitor)
   - [Build](#Build)
   - [Create](#Create)
+  - [Update](#Update)
   - [Delete](#Delete)
   - [Start](#Start)
   - [Stop](#Stop)
@@ -204,6 +205,22 @@ StateMachine.create(source: Union[str, IOBase, Path],
 * `role`: AWS IAM role for the State Machine to execute under
           This can either be the full ARN or just the IAM role name
 * Returns: ARN of the Step Function
+
+### Update
+
+Update the Heaviside DSL definition and / or the IAM role of the Step Function in AWS
+
+`machine.update(heaviside.utils.Path('/path/to/hsd/file.hsd'))`
+
+```python
+StateMachine.create(source: optional[Union[str, IOBase, Path]],
+                    role: optional[str]) -> None
+```
+
+* `source`: The Heaviside DSL description to compile
+            `Path` is either `pathlib.Path` or `heaviside.utils.Path`
+* `role`: AWS IAM role for the State Machine to execute under
+          This can either be the full ARN or just the IAM role name
  
 ### Delete
 
