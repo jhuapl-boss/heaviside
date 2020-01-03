@@ -17,7 +17,7 @@
 # python setup.py bdist_wheel
 # twine upload --skip-existing dist/*
 
-__version__ = '2.0'
+__version__ = '2.1'
 
 import os
 
@@ -41,6 +41,7 @@ setup(
     name='heaviside',
     version=__version__,
     packages=['heaviside'],
+    package_data={'heaviside': ['aws_services.json']},
     url='https://github.com/jhuapl-boss/heaviside',
     license="Apache Software License 2.0",
     author='Derek Pryor',

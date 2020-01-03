@@ -1,6 +1,7 @@
 # Heaviside Changelog
 
 ## 2.1.0 (pre-release)
+ * Fixed bug in packaging `aws_service.json` definition file
  * Fix bug in `heaviside.ast.StateVisitor` implementation
  * Added support for updating existing Step Functions
 

@@ -1,3 +1,4 @@
 funcparserlib
 iso8601
 boto3>=1.4.3
+importlib_resources; python_version < "3.7"

@@ -25,12 +25,14 @@ from .utils import isstr
 #### Load AWS Service Integration Definitions####
 #################################################
 
-import os
 import json
-cur_dir = os.path.dirname(__file__)
-definitions = os.path.join(cur_dir, 'aws_services.json')
-with open(definitions, 'r') as fh:
-    AWS_SERVICES = json.load(fh)
+
+try:
+    from importlib.resources import read_text
+except ImportError:
+    from importlib_resources import read_text
+
+AWS_SERVICES = json.loads(read_text('heaviside', 'aws_services.json'))
 
 #################################################
 #################################################
