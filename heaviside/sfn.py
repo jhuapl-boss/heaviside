@@ -1,4 +1,4 @@
-# Copyright 2016 The Johns Hopkins University Applied Physics Laboratory
+# Copyright 2020 The Johns Hopkins University Applied Physics Laboratory
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -137,6 +137,10 @@ class State(dict):
         if ast.state_type == 'Fail':
             self['Error'] = ast.error.value
             self['Cause'] = ast.cause.value
+
+        if ast.state_type == 'Pass':
+            if ast.parameters is not None:
+                self['Parameters'] = Parameters(ast.parameters)
 
         if ast.state_type == 'Task':
             self['Resource'] = ast.arn

@@ -164,12 +164,17 @@ around or inject new data into the results.
         input: JsonPath
         result: JsonPath
         output: JsonPath
+        parameters:
+            Key1: {"JSON": "Text"}
+            Key2: "string-value"
         data:
             Json
 
 Modifiers:
 * `result`: JsonPath of where to place the results of the state, relative to the
             raw input (before the `input` modifier was applied) (Default: `"$"`)
+* `parameters`: Keyword arguments to be passed in the API call. The value is a
+                JSON text.  These wil be added to the incoming input.
 * `data`: A block of Json data that will be used as the result of the state
 
 #### Task State
