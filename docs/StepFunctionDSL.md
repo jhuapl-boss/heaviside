@@ -164,12 +164,21 @@ around or inject new data into the results.
         input: JsonPath
         result: JsonPath
         output: JsonPath
+        parameters:
+            Key1: {"JSON": "Text"}
+            Key2: "string-value"
         data:
             Json
 
 Modifiers:
 * `result`: JsonPath of where to place the results of the state, relative to the
             raw input (before the `input` modifier was applied) (Default: `"$"`)
+* `parameters`: Keyword arguments to be passed in the API call. The value is
+                JSON text.  The parameters will override the the incoming
+                input, but JsonPaths may be used to select from existing
+                inputs.
+                NOTE: If the value contains a JsonPath the key must end wit `.$`
+                AWS documentation: https://docs.aws.amazon.com/step-functions/latest/dg/input-output-inputpath-params.html
 * `data`: A block of Json data that will be used as the result of the state
 
 #### Task State

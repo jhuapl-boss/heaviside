@@ -1,4 +1,4 @@
-# Copyright 2016 The Johns Hopkins University Applied Physics Laboratory
+# Copyright 2020 The Johns Hopkins University Applied Physics Laboratory
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -273,7 +273,7 @@ class ASTState(ASTNode):
 
 class ASTStatePass(ASTState):
     state_type = 'Pass'
-    valid_modifiers = [ASTModInput, ASTModResult, ASTModOutput, ASTModData]
+    valid_modifiers = [ASTModInput, ASTModResult, ASTModOutput, ASTModData, ASTModParameters]
 
 class ASTStateGoto(ASTStatePass):
     """Custom version of Pass that exposes / sets the 'next' modifier"""
