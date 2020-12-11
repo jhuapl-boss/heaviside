@@ -14,10 +14,6 @@
 
 import copy
 from collections import OrderedDict
-
-from funcparserlib.parser import (some, a, skip)
-
-from .lexer import Token
 from .exceptions import CompileError
 from .utils import isstr
 
@@ -263,6 +259,7 @@ class ASTState(ASTNode):
         self.parameters = get(ASTModParameters)
         self.retry = get(ASTModRetry)
         self.catch = get(ASTModCatch)
+        self.iterator = get(ASTModIterator)
 
         if modifiers is not None and len(modifiers.mods) > 0:
             type_ = list(modifiers.mods.keys())[0]
@@ -474,6 +471,32 @@ class ASTStateParallel(ASTState):
 class ASTModVersion(ASTModKV):
     pass
 
+class ASTModIterator(ASTNode):
+    """This modifier is used by the Map state."""
+    name = 'Iterator'
+
+    def __init__(self, iterator, block):
+        comment, states = block
+        super(ASTModIterator, self).__init__(iterator.token)
+        self.block = states
+
+class ASTStateMap(ASTState):
+    state_type = 'Map'
+    valid_modifiers = [ASTModInput,
+                       ASTModResult,
+                       ASTModOutput,
+                       ASTModRetry,
+                       ASTModCatch,
+                       ASTModIterator]
+
+    def __init__(self, state, block, transform, error):
+        comment, states = block
+
+        super(ASTStateMap, self).__init__(state, (comment, states))
+
+        if self.iterator is None:
+            state.raise_error('Map state must have an iterator')
+
 class ASTStepFunction(ASTNode):
     def __init__(self, comment, version, timeout, states):
         super(ASTStepFunction, self).__init__() # ???: use the first states's token?
@@ -567,6 +590,10 @@ def link(states, final=None):
                 linked_ = link(states_, final=next_)
                 catch.next = linked_[0].name
                 linked.extend(linked_)
+
+        if state.iterator is not None:
+            states_ = state.iterator.block
+            states_ = link(states_, final=next_)
 
         # Different states use the branches variable in different ways
         if isinstance(state, ASTStateChoice):

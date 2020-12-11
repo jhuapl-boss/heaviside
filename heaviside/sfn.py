@@ -19,7 +19,7 @@ from collections import OrderedDict
 
 import iso8601 # parser for timestamp format
 
-from .ast import ASTStateChoice, ASTCompOp, ASTCompNot, ASTCompAndOr, ASTValue, ASTModNext
+from .ast import ASTStateChoice, ASTCompOp, ASTCompNot, ASTCompAndOr, ASTValue, ASTModNext, ASTStepFunction
 
 class Timestamp(object):
     """Wrapper around a timestamp string.
@@ -132,6 +132,11 @@ class State(dict):
             for retry in ast.retry:
                 self['Retry'].append(Retry(retry))
 
+        if ast.iterator is not None:
+            # The iterator contains a separate state machine that runs on each
+            # element of the input array.
+            substates = [b for b in ast.iterator.block]
+            self['Iterator'] = StepFunction(ASTStepFunction(None, None, None, substates))
 
         # State specific arguments
         if ast.state_type == 'Fail':
