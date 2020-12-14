@@ -23,8 +23,8 @@ Lambda('FUNCTION_NAME')
     input / results / output / data are all valid"""
     timeout: 60 # Lambda / Activity only
     heartbeat: 30 # Lambda / Activity only, must be less than timeout
-    retry ["Error(s)"] 0 0 1.0 # retry interval (seconds), max attempts, backoff rate
-    retry [] 0 0 1.0 # Empty error to match all errors (Same as State.ALL)
+    retry ["Error(s)"] 1 0 1.0 # retry interval (seconds), max attempts, backoff rate
+    retry [] 1 0 1.0 # Empty error to match all errors (Same as State.ALL)
     catch ["Error(s)"]:
         Pass()
     catch []: # Same as above
@@ -160,6 +160,6 @@ parallel:
 transform:
     input: '$.foo'
 error:
-    retry [] 0 0 0.0
+    retry [] 1 0 0.0
     catch []:
         Pass()

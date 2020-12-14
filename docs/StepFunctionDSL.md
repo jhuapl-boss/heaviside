@@ -254,7 +254,7 @@ Modifiers:
 * `parameters`: Keyword arguments to be passed in the API call. The value is a
                 JSON text, which may be a JsonPath referencing data from the
                 state's input data object.
-                NOTE: If the value contains a JsonPath the key must end wit `.$`
+                NOTE: If the value contains a JsonPath the key must end with `.$`
 * `retry`: If the given error(s) were encountered, rerun the state
   - `error(s)`: A single string, array of strings, or empty array of errors to match
               against. An empty array matches against all errors.
@@ -302,8 +302,17 @@ the input array.
 
 Modifiers:
 * `iterator`: Required - the independent state machine is defined here.
+* `max_concurrency`: The maximum instances of the iterator that may run in
+                     parallel.
+* `items_path`: JsonPath to the array to run the map on.  Defaults to `"$"`.
+* `parameters`: Keyword arguments to be passed in the API call. The value is a
+                JSON text, which may be a JsonPath referencing data from the
+                state's input data object.
+                NOTE: If the value contains a JsonPath the key must end with `.$`
 * `result`: JsonPath of where to place the results of the state, relative to the
             raw input (before the `input` modifier was applied) (Default: `"$"`)
+* `output`: JsonPath selecting a value from the output object to be passed to the
+            next state (Default: `"$"`)
 * `retry`: If the given error(s) were encountered, rerun the state
   - `error(s)`: A single string, array of strings, or empty array of errors to match
               against. An empty array matches against all errors.
@@ -321,6 +330,38 @@ Modifiers:
               information will replace the errored state's input.
               Error information is a dictionary containing the key 'Error' and
               possibly the key 'Cause'.
+
+Example showing `map` used modifiers:
+
+```
+version: "1.0"
+timeout: 60
+Pass()
+    """CreateSomeInputs"""
+    result: '$'
+    data:
+        {
+            "the_array": [1, 2, 3, 4, 5],
+            "foo": "bar"
+map:
+    """TransformInputsWithMap"""
+    iterator:
+        Pass()
+            """MapPassState"""
+        Wait(seconds=2)
+            """WaitState"""
+    parameters:
+        foo.$: "$.foo"
+        element.$: "$$.Map.Item.Value"
+    items_path: "$.the_array"
+    result: "$.transformed"
+    output: "$.transformed"
+    max_concurrency: 4
+    retry [] 1 0 1.0 
+    catch []:
+        Pass()
+            """SomeErrorHandler"""
+```
 
 ### Flow Control States
 #### Comparison Operators

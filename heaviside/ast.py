@@ -260,6 +260,8 @@ class ASTState(ASTNode):
         self.retry = get(ASTModRetry)
         self.catch = get(ASTModCatch)
         self.iterator = get(ASTModIterator)
+        self.max_concurrency = get(ASTModMaxConcurrency)
+        self.items_path = get(ASTModItemsPath)
 
         if modifiers is not None and len(modifiers.mods) > 0:
             type_ = list(modifiers.mods.keys())[0]
@@ -468,9 +470,6 @@ class ASTStateParallel(ASTState):
             for parallel, states_ in parallels:
                 self.branches.append(ASTParallelBranch(parallel, states_))
 
-class ASTModVersion(ASTModKV):
-    pass
-
 class ASTModIterator(ASTNode):
     """This modifier is used by the Map state."""
     name = 'Iterator'
@@ -480,14 +479,31 @@ class ASTModIterator(ASTNode):
         super(ASTModIterator, self).__init__(iterator.token)
         self.block = states
 
+class ASTModMaxConcurrency(ASTModKV):
+    """
+    This modifier is used by the Map state to limit number of instances of
+    the iterator that may run in parallel.
+    """
+    name = 'MaxConcurrency'
+
+class ASTModItemsPath(ASTModKV):
+    """
+    This modifier selects an array in the input.  Each element of this array is
+    passed the iterator.
+    """
+    name = 'ItemsPath'
+
 class ASTStateMap(ASTState):
     state_type = 'Map'
     valid_modifiers = [ASTModInput,
+                       ASTModParameters,
                        ASTModResult,
                        ASTModOutput,
                        ASTModRetry,
                        ASTModCatch,
-                       ASTModIterator]
+                       ASTModItemsPath,
+                       ASTModIterator,
+                       ASTModMaxConcurrency]
 
     def __init__(self, state, block, transform, error):
         comment, states = block
@@ -496,6 +512,9 @@ class ASTStateMap(ASTState):
 
         if self.iterator is None:
             state.raise_error('Map state must have an iterator')
+
+class ASTModVersion(ASTModKV):
+    pass
 
 class ASTStepFunction(ASTNode):
     def __init__(self, comment, version, timeout, states):
