@@ -268,7 +268,7 @@ def parse(seq, region = '', account_id = '', visitors=[]):
                       (n('result') + op_(':') + string >> make(ASTModResult)) |
                       (n('output') + op_(':') + string >> make(ASTModOutput)) |
                       (n('data') + op_(':') + block_s + json_text + block_e >> make(ASTModData)) |
-                      (n('max_concurrency') + op_(':') + integer_pos >> make(ASTModMaxConcurrency)) |
+                      (n('max_concurrency') + op_(':') + integer_nn >> make(ASTModMaxConcurrency)) |
                       (n('items_path') + op_(':') + string >> make(ASTModItemsPath)) |
                       parameter_block | retry_block | catch_block | iterator_block)
 

@@ -146,3 +146,9 @@ class TestCompile(unittest.TestCase):
         out = json.loads(out)
 
         self.assertEqual(out['States']['Line1']['Resource'], 'modified')
+
+    def test_invalid_iterator(self):
+        self.execute('error_iterator_used_by_non_map_state.sfn', "Pass state cannot contain a Iterator modifier")
+
+    def test_map_without_iterator(self):
+        self.execute('error_map_has_no_iterator.sfn', 'Map state must have an iterator')
