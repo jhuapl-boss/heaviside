@@ -612,7 +612,7 @@ def link(states, final=None):
 
         if state.iterator is not None:
             states_ = state.iterator.block
-            states_ = link(states_, final=next_)
+            states_ = link(states_, final=None)
 
         # Different states use the branches variable in different ways
         if isinstance(state, ASTStateChoice):
