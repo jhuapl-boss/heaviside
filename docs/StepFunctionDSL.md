@@ -39,6 +39,7 @@ libraries page.
     - [Pass State](#Pass-State)
     - [Task State](#Task-State)
     - [Wait State](#Wait-State)
+    - [Map State](#Map-State)
   - [Flow Control States](#Flow-Control-States)
     - [Comparison Operators](#Comparison-Operators)
     - [If](#If)
@@ -253,7 +254,7 @@ Modifiers:
 * `parameters`: Keyword arguments to be passed in the API call. The value is a
                 JSON text, which may be a JsonPath referencing data from the
                 state's input data object.
-                NOTE: If the value contains a JsonPath the key must end wit `.$`
+                NOTE: If the value contains a JsonPath the key must end with `.$`
 * `retry`: If the given error(s) were encountered, rerun the state
   - `error(s)`: A single string, array of strings, or empty array of errors to match
               against. An empty array matches against all errors.
@@ -294,6 +295,74 @@ Arguments:
 * `timestamp`: Wait until the specified time
 * `seconds_path`: Read the number of seconds to wait from the given JsonPath
 * `timestamp_path`: Read the timestamp to wait until from the givne JsonPath
+
+#### Map State
+This state defines an independent state machine that runs on each element of
+the input array.
+
+Modifiers:
+* `iterator`: Required - the independent state machine is defined here.
+* `max_concurrency`: The maximum instances of the iterator that may run in
+                     parallel.
+* `items_path`: JsonPath to the array to run the map on.  Defaults to `"$"`.
+* `parameters`: Keyword arguments to be passed in the API call. The value is a
+                JSON text, which may be a JsonPath referencing data from the
+                state's input data object.
+                NOTE: If the value contains a JsonPath the key must end with `.$`
+* `result`: JsonPath of where to place the results of the state, relative to the
+            raw input (before the `input` modifier was applied) (Default: `"$"`)
+* `output`: JsonPath selecting a value from the output object to be passed to the
+            next state (Default: `"$"`)
+* `retry`: If the given error(s) were encountered, rerun the state
+  - `error(s)`: A single string, array of strings, or empty array of errors to match
+              against. An empty array matches against all errors.
+  - `retry interval`: Number of seconds to wait before the first retry
+  - `max attempts`: Number of retries to attempt before passing errors to `catch`
+                  modifiers. Zero (0) is a valid value, meaning don't retry.
+  - `backoff rate`: The multipler that increases the `retry interval` on each attempt
+* `catch`: If the given error(s) were encountered and not handled by a `retry`
+           then execute the given states. If the states in the catch block don't
+           terminate, then execution will continue on the next valid state.
+  - `error(s)`: A single string, array of strings, or empty array of errors to match
+              against. An empty array matches against all errors.
+  - JsonPath: An optional JsonPath string about where to place the error information
+              in relationship to the errored state's input. By default the error
+              information will replace the errored state's input.
+              Error information is a dictionary containing the key 'Error' and
+              possibly the key 'Cause'.
+
+Example showing `map` used modifiers:
+
+```
+version: "1.0"
+timeout: 60
+Pass()
+    """CreateSomeInputs"""
+    result: '$'
+    data:
+        {
+            "the_array": [1, 2, 3, 4, 5],
+            "foo": "bar"
+        }
+map:
+    """TransformInputsWithMap"""
+    iterator:
+        Pass()
+            """MapPassState"""
+        Wait(seconds=2)
+            """WaitState"""
+    parameters:
+        foo.$: "$.foo"
+        element.$: "$$.Map.Item.Value"
+    items_path: "$.the_array"
+    result: "$.transformed"
+    output: "$.transformed"
+    max_concurrency: 4
+    retry [] 1 0 1.0 
+    catch []:
+        Pass()
+            """SomeErrorHandler"""
+```
 
 ### Flow Control States
 #### Comparison Operators

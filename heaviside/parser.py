@@ -1,4 +1,4 @@
-# Copyright 2016 The Johns Hopkins University Applied Physics Laboratory
+# Copyright 2020 The Johns Hopkins University Applied Physics Laboratory
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -11,8 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-import json
 
 from funcparserlib.parser import (some, a, many, skip, maybe, forward_decl)
 from funcparserlib.parser import NoParseError, State
@@ -248,7 +246,7 @@ def parse(seq, region = '', account_id = '', visitors=[]):
     """
     state = forward_decl()
 
-    # Primatives
+    # Primitives
     array = op_('[') + maybe(string + many(op_(',') + string)) + op_(']') >> make_array
 
     block = block_s + many(state) + block_e
@@ -257,6 +255,7 @@ def parse(seq, region = '', account_id = '', visitors=[]):
     parameter_block = n('parameters') + op_(':') + block_s + parameter_kv + many(parameter_kv) + block_e >> make(ASTModParameters)
     retry_block = n('retry') + (array|string) + integer_pos + integer_nn + number >> make(ASTModRetry)
     catch_block = n('catch') + (array|string) + op_(':') + maybe(string) + block >> make(ASTModCatch)
+    iterator_block = n('iterator') + op_(':') + comment_block >> make(ASTModIterator)
 
 
     # Simple States
@@ -269,7 +268,9 @@ def parse(seq, region = '', account_id = '', visitors=[]):
                       (n('result') + op_(':') + string >> make(ASTModResult)) |
                       (n('output') + op_(':') + string >> make(ASTModOutput)) |
                       (n('data') + op_(':') + block_s + json_text + block_e >> make(ASTModData)) |
-                      parameter_block | retry_block | catch_block)
+                      (n('max_concurrency') + op_(':') + integer_nn >> make(ASTModMaxConcurrency)) |
+                      (n('items_path') + op_(':') + string >> make(ASTModItemsPath)) |
+                      parameter_block | retry_block | catch_block | iterator_block)
 
     state_modifiers = state_modifier + many(state_modifier) >> make(ASTModifiers)
     state_block = maybe(block_s + maybe(string) + maybe(state_modifiers) + block_e)
@@ -308,7 +309,10 @@ def parse(seq, region = '', account_id = '', visitors=[]):
 
     goto = n('goto') + string >> make(ASTStateGoto)
 
-    state.define(simple_state | choice_state | parallel | goto)
+    map_ = ((n('map') + op_(':') + state_block + transform_block + error_block)
+           ) >> make(ASTStateMap)
+
+    state.define(simple_state | choice_state | parallel | goto | map_)
 
     # State Machine
     version = maybe(n('version') + op_(':') + string >> make(ASTModVersion))

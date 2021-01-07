@@ -1,0 +1,23 @@
+version: "1.0"
+timeout: 60
+Pass()
+    """CreateSomeInputs"""
+    result: '$'
+    data:
+        {
+            "the_array": [1, 2, 3, 4, 5],
+            "foo": "bar"
+        }
+map:
+    """TransformInputsWithMap"""
+    parameters:
+        foo.$: "$.foo"
+        element.$: "$$.Map.Item.Value"
+    items_path: "$.the_array"
+    result: "$.transformed"
+    output: "$.transformed"
+    max_concurrency: 4
+    retry [] 1 0 1.0 
+    catch []:
+        Pass()
+            """SomeErrorHandler"""

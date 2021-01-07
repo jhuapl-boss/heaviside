@@ -1,0 +1,6 @@
+Pass()
+    iterator:
+        Pass()
+            """MapPassState"""
+        Wait(seconds=2)
+            """WaitState"""

@@ -1,5 +1,8 @@
 # Heaviside Changelog
 
+## 2.2.0
+ * Added support for Map state
+
 ## 2.1.0
  * Fixed bug in packaging `aws_service.json` definition file
  * Fix bug in `heaviside.ast.StateVisitor` implementation

@@ -1,0 +1,53 @@
+version: 2.1
+orbs:
+  python: circleci/python@0.2.1
+
+commands:
+  install:
+    description: "Install Python dependencies"
+    parameters:
+      pyversion:
+        type: string
+    steps:
+      - checkout
+      - python/load-cache
+      - python/install-deps
+      - python/save-cache
+
+  test_heaviside:
+    description: "Test the step function activitities"
+    steps:
+      - run: python3 -m unittest discover
+
+jobs:
+  test_py3_7:
+    docker:
+      - image: circleci/python:3.7
+    steps:
+      - install:
+          pyversion: python3.7
+      - test_heaviside
+
+  test_py3_8:
+    docker:
+      - image: circleci/python:3.8
+    steps:
+      - install:
+          pyversion: python3.8
+      - test_heaviside
+
+  test_py3_9:
+    docker:
+      - image: circleci/python:3.9
+    steps:
+      - install:
+          pyversion: python3.9
+      - test_heaviside
+
+workflows:
+  test:
+    jobs:
+      - test_py3_7
+      - test_py3_8
+      - test_py3_9
+

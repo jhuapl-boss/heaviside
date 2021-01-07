@@ -14,10 +14,6 @@
 
 import copy
 from collections import OrderedDict
-
-from funcparserlib.parser import (some, a, skip)
-
-from .lexer import Token
 from .exceptions import CompileError
 from .utils import isstr
 
@@ -263,6 +259,9 @@ class ASTState(ASTNode):
         self.parameters = get(ASTModParameters)
         self.retry = get(ASTModRetry)
         self.catch = get(ASTModCatch)
+        self.iterator = get(ASTModIterator)
+        self.max_concurrency = get(ASTModMaxConcurrency)
+        self.items_path = get(ASTModItemsPath)
 
         if modifiers is not None and len(modifiers.mods) > 0:
             type_ = list(modifiers.mods.keys())[0]
@@ -471,6 +470,49 @@ class ASTStateParallel(ASTState):
             for parallel, states_ in parallels:
                 self.branches.append(ASTParallelBranch(parallel, states_))
 
+class ASTModIterator(ASTNode):
+    """This modifier is used by the Map state."""
+    name = 'Iterator'
+
+    def __init__(self, iterator, block):
+        comment, states = block
+        super(ASTModIterator, self).__init__(iterator.token)
+        self.block = states
+
+class ASTModMaxConcurrency(ASTModKV):
+    """
+    This modifier is used by the Map state to limit number of instances of
+    the iterator that may run in parallel.
+    """
+    name = 'MaxConcurrency'
+
+class ASTModItemsPath(ASTModKV):
+    """
+    This modifier selects an array in the input.  Each element of this array is
+    passed the iterator.
+    """
+    name = 'ItemsPath'
+
+class ASTStateMap(ASTState):
+    state_type = 'Map'
+    valid_modifiers = [ASTModInput,
+                       ASTModParameters,
+                       ASTModResult,
+                       ASTModOutput,
+                       ASTModRetry,
+                       ASTModCatch,
+                       ASTModItemsPath,
+                       ASTModIterator,
+                       ASTModMaxConcurrency]
+
+    def __init__(self, state, block, transform, error):
+        comment, states = block
+
+        super(ASTStateMap, self).__init__(state, (comment, states))
+
+        if self.iterator is None:
+            state.raise_error('Map state must have an iterator')
+
 class ASTModVersion(ASTModKV):
     pass
 
@@ -567,6 +609,10 @@ def link(states, final=None):
                 linked_ = link(states_, final=next_)
                 catch.next = linked_[0].name
                 linked.extend(linked_)
+
+        if state.iterator is not None:
+            states_ = state.iterator.block
+            states_ = link(states_, final=None)
 
         # Different states use the branches variable in different ways
         if isinstance(state, ASTStateChoice):
