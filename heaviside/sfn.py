@@ -135,7 +135,7 @@ class State(dict):
         if ast.iterator is not None:
             # The iterator contains a separate state machine that runs on each
             # element of the input array.
-            substates = [b for b in ast.iterator.block]
+            substates = [b for b in ast.iterator.states]
             self['Iterator'] = StepFunction(ASTStepFunction(None, None, None, substates))
 
         if ast.items_path is not None:

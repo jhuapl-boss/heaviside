@@ -612,7 +612,7 @@ def link(states, final=None):
 
         if state.iterator is not None:
             states_ = state.iterator.block
-            states_ = link(states_, final=None)
+            state.iterator.states = link(states_, final=None)
 
         # Different states use the branches variable in different ways
         if isinstance(state, ASTStateChoice):
@@ -706,6 +706,8 @@ def resolve_arns(branch, region = '', account_id = ''):
         elif isinstance(state, ASTStateParallel):
             for branch in state.branches:
                 resolve_arns(branch, region, account_id)
+        elif isinstance(state, ASTStateMap):
+            resolve_arns(state.iterator, region, account_id)
 
 def verify_goto_targets(branch):
     """Recursivly checks that all Goto states target valid state names
@@ -735,6 +737,9 @@ def verify_goto_targets(branch):
             if isinstance(state, ASTStateParallel):
                 for branch in state.branches:
                     to_process.append(branch.states)
+            elif isinstance(state, ASTStateMap):
+                # Check the map state's internal state machine
+                to_process.append(state.iterator.states)
 
         for state in states:
             if isinstance(state.next, ASTModNext):
@@ -772,6 +777,8 @@ class StateVisitor(object):
             if isinstance(state, ASTStateParallel):
                 for branch in state.branches:
                     self.visit(branch)
+            elif isinstance(state, ASTStateMap):
+                self.visit(state.iterator)
 
     def handle_task(self, state):
         """ASTStateTask handler function placeholder

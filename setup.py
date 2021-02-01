@@ -17,7 +17,7 @@
 # python setup.py bdist_wheel
 # twine upload --skip-existing dist/*
 
-__version__ = '2.2'
+__version__ = '2.2.1'
 
 import os
 
