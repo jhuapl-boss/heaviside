@@ -1,5 +1,8 @@
 # Heaviside Changelog
 
+## 2.2.1
+ * Fixed issues with Map state with while blocks and resolving ARNs
+
 ## 2.2.0
  * Added support for Map state
 
