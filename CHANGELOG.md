@@ -1,5 +1,8 @@
 # Heaviside Changelog
 
+## 2.2.2
+ * Catch duplicate state names within a map's iterator
+
 ## 2.2.1
  * Fixed issues with Map state with while blocks and resolving ARNs
 

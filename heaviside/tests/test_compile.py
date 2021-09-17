@@ -152,3 +152,6 @@ class TestCompile(unittest.TestCase):
 
     def test_map_without_iterator(self):
         self.execute('error_map_has_no_iterator.sfn', 'Map state must have an iterator')
+
+    def test_map_iterator_has_duplicate_state_name(self):
+        self.execute('error_map_iterator_duplicate_state_name.sfn', "Duplicate state name 'DuplicateName'")
