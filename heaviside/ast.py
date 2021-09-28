@@ -667,6 +667,9 @@ def check_names(branch):
             if isinstance(state, ASTStateParallel):
                 for branch in state.branches:
                     to_process.append(branch.states)
+            elif isinstance(state, ASTStateMap):
+                # Check the map state's internal state machine
+                to_process.append(state.iterator.states)
 
 def resolve_arns(branch, region = '', account_id = ''):
     """AST Transform that sets the `arn` attribute for ASTStateTasks
