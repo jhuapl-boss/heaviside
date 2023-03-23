@@ -1,4 +1,10 @@
-funcparserlib
+# Check 
+hvac>=0.11.2, <1.0.0
+# funcparserlib changed after 0.3.6 and now requires two positional arguments: 'pos' and 'max' when using run.
+# To use funcparserlib 0.3.6 requires setuptools<58.0
+# see https://bobbyhadz.com/blog/python-error-in-package-setup-command-use-2to3-is-invalid
+setuptools<58.0
+funcparserlib=>0.3.6, <1.0.0
 iso8601
 boto3>=1.4.3
 importlib_resources; python_version < "3.7"
