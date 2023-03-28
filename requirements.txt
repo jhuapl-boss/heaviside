@@ -7,4 +7,4 @@ setuptools<58.0
 funcparserlib==0.3.6
 iso8601
 boto3>=1.4.3
-importlib_resources; python_version < "3.7"
+importlib_resources
