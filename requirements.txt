@@ -4,7 +4,7 @@ hvac>=0.11.2, <1.0.0
 # To use funcparserlib 0.3.6 requires setuptools<58.0
 # see https://bobbyhadz.com/blog/python-error-in-package-setup-command-use-2to3-is-invalid
 setuptools<58.0
-funcparserlib=>0.3.6, <1.0.0
+funcparserlib==0.3.6
 iso8601
 boto3>=1.4.3
 importlib_resources; python_version < "3.7"
