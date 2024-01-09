@@ -1,5 +1,8 @@
 # Heaviside Changelog
 
+## 2.2.3
+ * Update funcparserlib version to ensure compatibility with Python 3.8 and above.
+
 ## 2.2.2
  * Catch duplicate state names within a map's iterator
 
