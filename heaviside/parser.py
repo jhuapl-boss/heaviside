@@ -321,7 +321,7 @@ def parse(seq, region = '', account_id = '', visitors=[]):
 
     try:
         # DP NOTE: calling run() directly to have better control of error handling
-        (tree, _) = machine.run(seq, State())
+        (tree, _) = machine.run(seq, State(pos=0, max=0))
         link_branch(tree)
         check_names(tree)
         resolve_arns(tree, region, account_id)

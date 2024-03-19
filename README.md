@@ -117,9 +117,9 @@ execution has finished and will print the output of the StepFunction.
 The Heaviside package installs the Python library `heaviside`. The public
 API is documented in the [Library API](docs/LibraryAPI.md) file.
 
-## Compatability
+## Compatibility
 
-Currently Heaviside has only been tested with Python 2.7 and 3.5.
+Currently, Heaviside has only been tested with Python 3.8.
 
 ## Related Projects
 
