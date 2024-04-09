@@ -1,4 +1,6 @@
 # Heaviside Changelog
+## 2.2.4
+ * Added support for Python 3.11
 
 ## 2.2.3
  * Update funcparserlib version to ensure compatibility with Python 3.8 and above.
