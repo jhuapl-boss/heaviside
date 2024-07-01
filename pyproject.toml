@@ -1,0 +1,57 @@
+# Copyright 2020 - 2204 The Johns Hopkins University Applied Physics Laboratory
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+[build_system]
+requires = ["setuptools>=69.0", "setuptools_scm[toml]>=6.2"]
+build_backend = "setuptools.build_meta"
+
+[project]
+name = "heaviside"
+version = "2.2.4"
+authors = [
+    { name="Derek Pryor" },
+]
+
+description = "Python library and DSL for working with AWS StepFunctions"
+readme = "README.md"
+requires-python = ">=3.8"
+
+classifiers=[
+    'Development Status :: 5 - Production/Stable',
+    'Intended Audience :: Developers',
+    'License :: OSI Approved :: Apache Software License',
+    'Programming Language :: Python :: 3',
+]
+
+dependencies = [
+  "hvac>=0.11.2, <1.0.0",
+  "setuptools>=69",
+  "funcparserlib==1.0.1",
+  "iso8601",
+  "boto3>=1.4.3",
+  "importlib_resources",
+]
+
+[project.scripts]
+heaviside = "heaviside:__main__.main"
+
+[tool.setuptools.package-data]
+heaviside = ["aws_services.json"]
+
+[project.urls]
+Homepage = "https://github.com/jhuapl-boss/heaviside"
+Issues = "https://github.com/jhuapl-boss/heaviside/issues"
+
+ignore_missing_imports = "true"
+

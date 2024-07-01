@@ -36,9 +36,27 @@ jobs:
           pyversion: python3.9
       - test_heaviside
 
+  test_py3_10:
+    docker:
+      - image: circleci/python:3.10
+    steps:
+      - install:
+          pyversion: python3.10
+      - test_heaviside
+
+  test_py3_11:
+    docker:
+      - image: circleci/python:3.11
+    steps:
+      - install:
+          pyversion: python3.11
+      - test_heaviside
+
 workflows:
   test:
     jobs:
       - test_py3_8
       - test_py3_9
+      - test_py3_10
+      - test_py3_11
 
