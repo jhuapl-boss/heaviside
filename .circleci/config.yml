@@ -1,6 +1,6 @@
 version: 2.1
 orbs:
-  python: cimg/python@0.2.1
+  python: circleci/python@0.2.1
 
 commands:
   install:
