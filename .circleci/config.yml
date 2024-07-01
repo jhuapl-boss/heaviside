@@ -1,6 +1,6 @@
 version: 2.1
 orbs:
-  python: circleci/python@0.2.1
+  python: cimg/python@0.2.1
 
 commands:
   install:
@@ -22,7 +22,7 @@ commands:
 jobs:
   test_py3_8:
     docker:
-      - image: circleci/python:3.8
+      - image: cimg/python:3.8
     steps:
       - install:
           pyversion: python3.8
@@ -30,7 +30,7 @@ jobs:
 
   test_py3_9:
     docker:
-      - image: circleci/python:3.9
+      - image: cimg/python:3.9
     steps:
       - install:
           pyversion: python3.9
@@ -38,7 +38,7 @@ jobs:
 
   test_py3_10:
     docker:
-      - image: circleci/python:3.10
+      - image: cimg/python:3.10
     steps:
       - install:
           pyversion: python3.10
@@ -46,7 +46,7 @@ jobs:
 
   test_py3_11:
     docker:
-      - image: circleci/python:3.11
+      - image: cimg/python:3.11
     steps:
       - install:
           pyversion: python3.11
