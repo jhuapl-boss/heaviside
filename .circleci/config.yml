@@ -22,7 +22,7 @@ commands:
 jobs:
   test_py3_8:
     docker:
-      - image: circleci/python:3.8
+      - image: cimg/python:3.8
     steps:
       - install:
           pyversion: python3.8
@@ -30,10 +30,26 @@ jobs:
 
   test_py3_9:
     docker:
-      - image: circleci/python:3.9
+      - image: cimg/python:3.9
     steps:
       - install:
           pyversion: python3.9
+      - test_heaviside
+
+  test_py3_10:
+    docker:
+      - image: cimg/python:3.10
+    steps:
+      - install:
+          pyversion: python3.10
+      - test_heaviside
+
+  test_py3_11:
+    docker:
+      - image: cimg/python:3.11
+    steps:
+      - install:
+          pyversion: python3.11
       - test_heaviside
 
 workflows:
@@ -41,4 +57,6 @@ workflows:
     jobs:
       - test_py3_8
       - test_py3_9
+      - test_py3_10
+      - test_py3_11
 

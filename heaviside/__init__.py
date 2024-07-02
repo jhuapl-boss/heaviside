@@ -1,4 +1,4 @@
-# Copyright 2016 The Johns Hopkins University Applied Physics Laboratory
+# Copyright 2016 - 2024 The Johns Hopkins University Applied Physics Laboratory
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,19 +14,17 @@
 
 from __future__ import print_function, unicode_literals
 
-import sys
 import time
 import json
 from datetime import datetime
-
-from botocore.exceptions import ClientError
 
 from .lexer import tokenize_source
 from .parser import parse
 from .exceptions import CompileError, HeavisideError
 from .utils import create_session, read
 
-def compile(source, region = '', account_id = '', visitors = [], **kwargs):
+
+def compile(source, region="", account_id="", visitors=[], **kwargs):
     """Compile a source step function dsl file into the AWS state machine definition
 
     Args:
@@ -42,23 +40,21 @@ def compile(source, region = '', account_id = '', visitors = [], **kwargs):
     """
     try:
         with read(source) as fh:
-            if hasattr(fh, 'name'):
+            if hasattr(fh, "name"):
                 source_name = fh.name
             else:
                 source_name = "<unknown>"
             tokens = tokenize_source(fh.readline)
 
-        machine = parse(tokens,
-                        region = region,
-                        account_id = account_id,
-                        visitors = visitors)
+        machine = parse(tokens, region=region, account_id=account_id, visitors=visitors)
         def_ = machine.definition(**kwargs)
         return def_
     except CompileError as e:
         e.source = source_name
-        raise e # DP ???: Should the original stacktrace be perserved?
-    #except Exception as e:
+        raise e  # DP ???: Should the original stacktrace be perserved?
+    # except Exception as e:
     #    print("Unhandled Error: {}".format(e))
+
 
 class StateMachine(object):
     """Class for working with and executing AWS Step Function State Machines"""
@@ -74,12 +70,12 @@ class StateMachine(object):
         self.visitors = []
         self.session, self.account_id = create_session(**kwargs)
         self.region = self.session.region_name
-        self.client = self.session.client('stepfunctions')
+        self.client = self.session.client("stepfunctions")
 
         resp = self.client.list_state_machines()
-        for machine in resp['stateMachines']:
-            if machine['name'] == name:
-                self.arn = machine['stateMachineArn']
+        for machine in resp["stateMachines"]:
+            if machine["name"] == name:
+                self.arn = machine["stateMachineArn"]
                 break
 
     def add_visitor(self, visitor):
@@ -105,19 +101,21 @@ class StateMachine(object):
         Raises:
             CompileError: If the was a problem compiling the source
         """
-        return compile(source,
-                       region = self.region,
-                       account_id = self.account_id,
-                       visitors = self.visitors,
-                       **kwargs)
+        return compile(
+            source,
+            region=self.region,
+            account_id=self.account_id,
+            visitors=self.visitors,
+            **kwargs,
+        )
 
     def _resolve_role(self, role):
         role = role.strip()
         if not role.lower().startswith("arn:aws:iam"):
-            client = self.session.client('iam')
+            client = self.session.client("iam")
             try:
                 response = client.get_role(RoleName=role)
-                role = response['Role']['Arn']
+                role = response["Role"]["Arn"]
             except:
                 raise HeavisideError("Could not lookup role '{}'".format(role))
 
@@ -141,11 +139,11 @@ class StateMachine(object):
         role = self._resolve_role(role)
         definition = self.build(source)
 
-        resp = self.client.create_state_machine(name = self.name,
-                                                definition = definition,
-                                                roleArn = role)
+        resp = self.client.create_state_machine(
+            name=self.name, definition=definition, roleArn=role
+        )
 
-        self.arn = resp['stateMachineArn']
+        self.arn = resp["stateMachineArn"]
 
     def update(self, source=None, role=None):
         """Update the state machine definition and/or IAM role in AWS
@@ -164,13 +162,13 @@ class StateMachine(object):
         if self.arn is None:
             raise HeavisideError("State Machine {} doesn't exist yet".format(self.arn))
 
-        args = {'stateMachineArn': self.arn}
+        args = {"stateMachineArn": self.arn}
 
         if source is not None:
-            args['definition'] = self.build(source)
+            args["definition"] = self.build(source)
 
         if role is not None:
-            args['roleArn'] = self._resolve_role(role)
+            args["roleArn"] = self._resolve_role(role)
 
         resp = self.client.update_state_machine(**args)
 
@@ -182,9 +180,11 @@ class StateMachine(object):
         """
         if self.arn is None:
             if exception:
-                raise HeavisideError("State Machine {} doesn't exist yet".format(self.name))
+                raise HeavisideError(
+                    "State Machine {} doesn't exist yet".format(self.name)
+                )
         else:
-            resp = self.client.delete_state_machine(stateMachineArn = self.arn)
+            resp = self.client.delete_state_machine(stateMachineArn=self.arn)
             self.arn = None
 
     def start(self, input_, name=None):
@@ -207,12 +207,14 @@ class StateMachine(object):
         if name is None:
             name = self.name + "-" + datetime.now().strftime("%Y%m%d%H%M%s%f")
 
-        resp = self.client.start_execution(stateMachineArn = self.arn,
-                                           name = name,
-                                           input = input_)
+        resp = self.client.start_execution(
+            stateMachineArn=self.arn, name=name, input=input_
+        )
 
-        arn = resp['executionArn']
-        return arn # DP NOTE: Could store ARN in internal dict and return execution name
+        arn = resp["executionArn"]
+        return (
+            arn  # DP NOTE: Could store ARN in internal dict and return execution name
+        )
 
     def stop(self, arn, error, cause):
         """Stop an execution of the state machine
@@ -222,9 +224,7 @@ class StateMachine(object):
             error (string): Error for the stop
             cause (string): Error cause for the stop
         """
-        resp = self.client.stop_execution(executionArn = arn,
-                                          error = error,
-                                          cause = cause)
+        resp = self.client.stop_execution(executionArn=arn, error=error, cause=cause)
 
     def status(self, arn):
         """Get the status of an execution
@@ -235,8 +235,8 @@ class StateMachine(object):
         Returns:
             string: One of 'RUNNING', 'SUCCEEDED', 'FAILED', 'TIMED_OUT', 'ABORTED'
         """
-        resp = self.client.describe_execution(executionArn = arn)
-        return resp['status']
+        resp = self.client.describe_execution(executionArn=arn)
+        return resp["status"]
 
     def wait(self, arn, period=10):
         """Wait for an execution to finish and get the results
@@ -252,19 +252,22 @@ class StateMachine(object):
             HeavisideError: If there was an error getting the failure message
         """
         while True:
-            resp = self.client.describe_execution(executionArn = arn)
-            if resp['status'] != 'RUNNING':
-                if 'output' in resp:
-                    return json.loads(resp['output'])
+            resp = self.client.describe_execution(executionArn=arn)
+            if resp["status"] != "RUNNING":
+                if "output" in resp:
+                    return json.loads(resp["output"])
                 else:
-                    resp = self.client.get_execution_history(executionArn = arn,
-                                                             reverseOrder = True)
-                    event = resp['events'][0]
-                    for key in ['Failed', 'Aborted', 'TimedOut']:
-                        key = 'execution{}EventDetails'.format(key)
+                    resp = self.client.get_execution_history(
+                        executionArn=arn, reverseOrder=True
+                    )
+                    event = resp["events"][0]
+                    for key in ["Failed", "Aborted", "TimedOut"]:
+                        key = "execution{}EventDetails".format(key)
                         if key in event:
                             return event[key]
-                    raise HeavisideError("Could not locate error output for execution '{}'".format(arn))
+                    raise HeavisideError(
+                        "Could not locate error output for execution '{}'".format(arn)
+                    )
             else:
                 time.sleep(period)
 
@@ -274,7 +277,7 @@ class StateMachine(object):
         Returns:
             list: List of strings containing the ARNs of all running executions
         """
-        resp = self.client.list_executions(stateMachineArn = self.arn,
-                                           statusFilter = 'RUNNING')
-        return [ex['executionArn'] for ex in resp['executions']]
-
+        resp = self.client.list_executions(
+            stateMachineArn=self.arn, statusFilter="RUNNING"
+        )
+        return [ex["executionArn"] for ex in resp["executions"]]
