@@ -119,7 +119,7 @@ API is documented in the [Library API](docs/LibraryAPI.md) file.
 
 ## Compatibility
 
-Currently, Heaviside has only been tested with Python 3.8.
+Currently, Heaviside has only been tested with Python 3.8 and 3.11
 
 ## Related Projects
 

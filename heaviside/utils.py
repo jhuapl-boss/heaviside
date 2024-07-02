@@ -1,4 +1,4 @@
-# Copyright 2016 The Johns Hopkins University Applied Physics Laboratory
+# Copyright 2024 The Johns Hopkins University Applied Physics Laboratory
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,10 +15,17 @@
 import json
 import sys
 from io import IOBase, StringIO
-from collections import Mapping
 from contextlib import contextmanager
 
 from boto3.session import Session
+
+# With Python3.11 Mapping is imported from collections.abc
+# Try to import with the new method and if it fails fall back to old way for compatibility
+try:
+    from collections.abc import Mapping
+except ImportError:
+    from collections import Mapping
+
 
 try:
     from urllib.request import urlopen

@@ -59,7 +59,7 @@ setup(
         'Programming Language :: Python :: 2.7',
     ],
     keywords=[
-        'boss',
+        'bossdb',
         'microns',
         'aws',
         'stepfunctions',
