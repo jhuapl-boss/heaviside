@@ -13,12 +13,12 @@
 # limitations under the License.
 
 [build_system]
-requires = ["setuptools>=69.0", "setuptools_scm[toml]>=6.2"]
+requires = ["setuptools>=75.3.0", "setuptools_scm[toml]>=8.1.0"]
 build_backend = "setuptools.build_meta"
 
 [project]
 name = "heaviside"
-version = "2.2.4"
+version = "2.2.5"
 authors = [
     { name="Derek Pryor" },
 ]
@@ -37,7 +37,7 @@ classifiers=[
 
 dependencies = [
   "hvac>=0.11.2, <1.0.0",
-  "setuptools>=69",
+  "setuptools>=75.3.0",
   "funcparserlib==1.0.1",
   "iso8601",
   "boto3>=1.4.3",

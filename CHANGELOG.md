@@ -1,4 +1,8 @@
 # Heaviside Changelog
+## 2.2.5
+ * upped setuptools to version 75.3.0 in requirements to avoid previous version's vulnerabilities
+ * upped setuptools-scm to 8.1.0
+ 
 ## 2.2.4
  * Added support for Python 3.11
  * Switched from `setup.py` to `pyproject.toml`
