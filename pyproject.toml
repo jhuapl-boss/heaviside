@@ -25,6 +25,7 @@ authors = [
 
 description = "Python library and DSL for working with AWS StepFunctions"
 readme = "README.md"
+license = {file = "LICENSE"}
 requires-python = ">=3.8"
 
 classifiers=[
@@ -43,6 +44,14 @@ dependencies = [
   "importlib_resources",
 ]
 
+keywords = [
+    "bossdb",
+    "microns",
+    "aws",
+    "stepfunctions",
+    "dsl"
+]
+
 [project.scripts]
 heaviside = "heaviside:__main__.main"
 
@@ -52,6 +61,7 @@ heaviside = ["aws_services.json"]
 [project.urls]
 Homepage = "https://github.com/jhuapl-boss/heaviside"
 Issues = "https://github.com/jhuapl-boss/heaviside/issues"
+Changelog = "https://github.com/jhuapl-boss/heaviside/blob/master/CHANGELOG.md"
 
 ignore_missing_imports = "true"
 
