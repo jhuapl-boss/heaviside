@@ -62,6 +62,3 @@ heaviside = ["aws_services.json"]
 Homepage = "https://github.com/jhuapl-boss/heaviside"
 Issues = "https://github.com/jhuapl-boss/heaviside/issues"
 Changelog = "https://github.com/jhuapl-boss/heaviside/blob/master/CHANGELOG.md"
-
-ignore_missing_imports = "true"
-
